@@ -49,7 +49,40 @@ by Felipe Gonzalez [Berkeley 05-19-2023]
  No arguments assumes V[A^3]-col= 6, P[GPa]-col= 12,  P_error-col= 13
 ```
 
-## Examples
+## Example: Equation of state of water at 7000 K
+```bash
+./fit_EOS.py EOS_H2O_liq_7000K.dat 6 12 13
+```
+
+```python
+**** FITTING EOS ****
+by Felipe Gonzalez [Berkeley 05-19-2023]
+
+BM fit:       V0[A^3]= 615.3997  K0[GPa]=  630.4528 4.6157  K0p[GPa]=  3.2871 0.0274   # Forcing P(V0)=P0 = min(P)
+Vinet fit:    V0[A^3]= 615.3997  K0[GPa]=  636.8488 5.1443  K0p[GPa]=  3.2062 0.0446   # Forcing P(V0)=P0 = min(P)
+BM fit:       V0[A^3]= 4753.5013 1692.8394  K0[GPa]=    1.6525 1.6265  K0p[GPa]=  4.0657 0.0181   # V0 as param
+Vinet fit:    V0[A^3]= 3055852.0380 2253595269.4510  K0[GPa]=    0.0000 0.0000  K0p[GPa]= 74.1731 18170.7965   # V0 as param
+
+#EOS Data: EOS_H2O_liq_7000K.dat
+i=  0  V[A^3]=  615.3997  P[GPa]=  248.5530
+i=  1  V[A^3]=  582.1348  P[GPa]=  288.8810
+i=  2  V[A^3]=  552.2817  P[GPa]=  331.7850
+i=  3  V[A^3]=  525.3412  P[GPa]=  377.5250
+i=  4  V[A^3]=  500.9067  P[GPa]=  432.4520
+i=  5  V[A^3]=  478.6442  P[GPa]=  484.7840
+i=  6  V[A^3]=  458.2763  P[GPa]=  544.4000
+i=  7  V[A^3]=  439.5712  P[GPa]=  606.9460
+i=  8  V[A^3]=  422.3331  P[GPa]=  675.0050
+i=  9  V[A^3]=  406.3960  P[GPa]=  748.0080
+i= 10  V[A^3]=  391.6180  P[GPa]=  823.7650
+
+Root Mean Square Error of each fit:
+FIT: BM         RMSE_P[GPa]=  1.653522  std(residuals)=  1.614589  R2=  0.99991781  chi^2=  6.43992805
+FIT: Vinet      RMSE_P[GPa]=  1.432710  std(residuals)=  1.411193  R2=  0.99993829  chi^2=  4.76497275
+FIT: loglog     RMSE_P[GPa]=  0.912606  std(residuals)=  0.912606  R2=  0.99997496  chi^2=  2.62694304
+```
+
+## Plots generated
 <img src="https://github.com/fgonzcat/fit_EOS/blob/main/PV_isotherm.png?raw=true" alt="Alt text" width="600">
 <img src="https://github.com/fgonzcat/fit_EOS/blob/main/Pdiff_vs_V.png?raw=true" alt="Alt text" width="600">
 
