@@ -2,7 +2,7 @@
 """
 -----------------------------------------------------------------------------------------------|
  FITTING EQUATIONS OF STATE USING VINET / BIRCH-MURNHAGAN 3RD-ORDER                            |
-The Birch-Murnhagan EOS is given by                                                            |
+The Birch-Murnhagan EOS of 3rd order is given by                                               |
                                                                                                |
 $$    P (V)= \frac{3}{2} K_0 \left(\left(\frac{V_0}{V}\right)^{7/3} -                          |
                  \left(\frac{V_0}{V}\right)^{5/3}\right)                                       |
@@ -257,7 +257,7 @@ print ( "Vinet fit:    V0[A^3]= %6.4f  K0[GPa]= %9.4f %6.4f  K0p[GPa]= %7.4f %4.
 
 ## K0,K0p, and V0 as parameters. 
 initial_guess = (max(V),max(P)/10, 4)  # Initial guess of parameters V0, K0, K0p
-npopt_BM, npcov_BM= curve_fit(P_V_BM, V, P, p0=initial_guess)
+npopt_BM, npcov_BM= curve_fit(P_V_BM, V, P, p0=initial_guess, maxfev=5000)
 Perr_BM = np.sqrt(np.diag(npcov_BM))
 print ( "BM fit:       V0[A^3]= %6.4f %4.4f  K0[GPa]= %9.4f %6.4f  K0p[GPa]= %7.4f %4.4f %s"  % ( npopt_BM[0], Perr_BM[0], npopt_BM[1], Perr_BM[1], npopt_BM[2], Perr_BM[2], "  # V0 as param" ) )
 npopt_Vinet, npcov_Vinet = curve_fit(VinetPressure, V, P, p0=initial_guess, maxfev=1000000)
