@@ -25,3 +25,31 @@ $$\ln V = a + b*\ln P + c*(\ln P)^2 + d*(\ln P)^3  \Rightarrow V(P) = {\rm e}^aP
   - $\chi^2 = 1$ ---> Line passes through 2/3 of 1 sigma & 95% of 2 sigma.
   - Model with $\chi^2$ closest to 1, wins.                                     
                                                                                                
+
+## Executing
+With no arguments, executing the code provides help:
+```bash
+./fit_EOS.py
+```
+```python
+**** FITTING EOS ****
+by Felipe Gonzalez [Berkeley 05-19-2023]
+
+
+
+ This code fits an isotherm using Birch-Murnhagan, Vinet, and log-log [Berkeley 05-19-23]
+
+ Usage: ./fit_EOS.py  /home/fgonzalez/EOS_Fe_sol_6000K.dat
+ Usage: ./fit_EOS.py  /home/fgonzalez/EOS_Fe_sol_6000K.dat   V[A^3]-col P[GPa]-col P_error-col
+ Usage: ./fit_EOS.py  /home/fgonzalez/EOS_Fe_sol_6000K.dat       6         12          13
+ Usage: ./fit_EOS.py   ... -p          ... --> print V(P)
+ Usage: ./fit_EOS.py   ... --test      ... --> deleting-points performance test
+ Usage: ./fit_EOS.py   ... --noplots
+
+ No arguments assumes V[A^3]-col= 6, P[GPa]-col= 12,  P_error-col= 13
+```
+
+## Examples
+<img src="https://github.com/fgonzcat/fit_EOS/blob/main/PV_isotherm.png?raw=true" alt="Alt text" width="600">
+<img src="https://github.com/fgonzcat/fit_EOS/blob/main/Pdiff_vs_V.png?raw=true" alt="Alt text" width="600">
+
