@@ -8,6 +8,21 @@ $$    P (V)= \frac{3}{2} K_0 \left(\left(\frac{V_0}{V}\right)^{7/3} -           
                  \left(\frac{V_0}{V}\right)^{5/3}\right)                                       |
          \left(1 + \frac{3}{4}\left(K_0'-4\right)(\left(\frac{V_0}{V}\right)^{2/3}-1)\right)$$ |
                                                                                                |
+and the Birch-Murnhagan EOS of 4th order is given by                                           |
+                                                                                               |
+$$    P (V)= \frac{3}{2} K_0 \left[\left(\frac{V_0}{V}\right)^{7/3}                            |
+       -  \left(\frac{V_0}{V}\right)^{5/3}\right]                                              |
+          \left[1 + \frac{3}{4}\left(K_0'-4\right)                                             |
+          \left(\left(\frac{V_0}{V}\right)^{2/3}-1\right)                                      |
+          + \frac{1}{24}\left(9{K_0'}^2-63K_0'+9K_0K_0''+143\right)                            |
+          \left(\left(\frac{V_0}{V}\right)^{2/3}-1\right)^2\right],$$                          |
+                                                                                               |
+where $K_0\equiv K(V_0)$, $K_0'\equiv K'(P=0)$, and $K_0'' \equiv K''(P=0)$, with              |
+$K'(P)\equiv \left(\frac{\partial K}{\partial P}\right)$ and                                   |
+$K''(P)\equiv \left(\frac{\partial^2 K}{\partial P^2}\right)$.                                 |
+Note that the derivatives are taken with respect to pressure, not volume.                      |
+In fact, $K'(P)= -K'(V)V/K(V)$.                                                                |
+                                                                                               |
 The Vinet EOS is given by                                                                      |
                                                                                                |
 $$P(V)= 3K_0 \left(\frac{1.0-\eta}{\eta^2}\right)                                              |
@@ -30,7 +45,7 @@ Reported Errors:                                                                
                                                                                                |
 Felipe Gonzalez                                                          Berkeley, 05/19/2023  |
 -----------------------------------------------------------------------------------------------|
-Last modified on:                                                                  01/11/2024
+Last modified on:                                                                  05/18/2024
 """
 from pylab import *
 from scipy.optimize import curve_fit
@@ -46,9 +61,11 @@ filename = "/home/fgonzalez/EOS_Fe_sol_6000K.dat"  # Example, must be provided a
 colV = 5  # Default column number for V[A^3]
 colP = 11  # Default column number for P[GPa]
 colPE = 12  # Default column number for P_error
+BM_deg = 3   # Birch-Murnaghan of 3rd order by default
 print_table = False
 deleting_points_test = False
 show_plots = True 
+V0_as_param = False
 
 
 
@@ -62,15 +79,20 @@ if len(sys.argv) == 1:
  
  This code fits an isotherm using Birch-Murnhagan, Vinet, and log-log [Berkeley 05-19-23]
  
- Usage: {}  /home/fgonzalez/EOS_Fe_sol_6000K.dat
- Usage: {}  /home/fgonzalez/EOS_Fe_sol_6000K.dat   V[A^3]-col P[GPa]-col P_error-col
- Usage: {}  /home/fgonzalez/EOS_Fe_sol_6000K.dat       6         12          13
- Usage: {}   ... -p          ... --> print V(P) 
- Usage: {}   ... --test      ... --> deleting-points performance test 
- Usage: {}   ... --noplots 
+ Usage: {0}  EOS_Fe_sol_6000K.dat
+ Usage: {0}  EOS_Fe_sol_6000K.dat   V[A^3]-col P[GPa]-col P_error-col
+ Usage: {0}  EOS_Fe_sol_6000K.dat       6         12          13
+ Usage: {0}  EOS_H2O_liq_7000K.dat      6         12          13  --BM4 --V0-as-param
+ Usage: {0}   ... -p              --> print V(P) 
+ Usage: {0}   ... --test          --> deleting-points performance test 
+ Usage: {0}   ... --noplots       --> don't plot 
+ Usage: {0}   ... --BM2           --> Birch-Murnaghan 2th order
+ Usage: {0}   ... --BM3           --> Birch-Murnaghan 3th order (default)
+ Usage: {0}   ... --BM4           --> Birch-Murnaghan 4th order
+ Usage: {0}   ... --V0-as-param   --> Treat V0 as another fitting parameter [ do not force the default P(V0) = P0, where P0=min(P), V0=max(P) ]
 
  No arguments assumes V[A^3]-col= 6, P[GPa]-col= 12,  P_error-col= 13
- """.format(sys.argv[0], sys.argv[0], sys.argv[0], sys.argv[0],sys.argv[0], sys.argv[0])
+ """.format(sys.argv[0])
  
  print(message)
  exit()
@@ -92,6 +114,24 @@ else:
   idx = sys.argv.index('--noplots')
   sys.argv.pop(idx)
   show_plots = False 
+ if '--V0-as-param' in sys.argv:
+  idx = sys.argv.index('--V0-as-param')
+  sys.argv.pop(idx)
+  V0_as_param = True
+ if '--BM2' in sys.argv:
+  idx = sys.argv.index('--BM2')
+  sys.argv.pop(idx)
+  BM_deg = 2
+ if '--BM3' in sys.argv:
+  idx = sys.argv.index('--BM3')
+  sys.argv.pop(idx)
+  BM_deg = 3
+ if '--BM4' in sys.argv:
+  idx = sys.argv.index('--BM4')
+  sys.argv.pop(idx)
+  BM_deg = 4
+
+
 
  if len(sys.argv)==2: pass
  elif len(sys.argv) >= 4 and all(arg.isdigit() for arg in sys.argv[2:5]):
@@ -133,14 +173,26 @@ rcParams.update(params)
 #-----------------------------------#
 # FUNCTIONAL FORMS OF FIT FUNCTIONS #
 #-----------------------------------#
-def P_V_BM(V, V0,K0,K0p):
+def P_V_BM2(V, V0,K0):
+    # 2nd order Birch-Murnaghan
+    f = (V0/V)**(1.0/3)
+    P = 1.5*K0 * (f**7 - f**5) 
+    return P
+
+def P_V_BM3(V, V0,K0,K0p):
     # 3rd order Birch-Murnaghan
     f = (V0/V)**(1.0/3)
-    P = 1.5*K0 * (f**7 - f**5) * (1 + 0.75*(K0p-4)*(f**2.0 - 1))
+    P = 1.5*K0 * (f**7 - f**5) * (1 + 0.75*(K0p-4)*(f*f - 1))
+    return P
+
+def P_V_BM4(V, V0,K0,K0p,K0pp):
+    # 4th order Birch-Murnaghan
+    f = (V0/V)**(1.0/3)
+    P = 1.5*K0 * (f**7 - f**5) * (1 + 0.75*(K0p-4)*(f*f - 1)  + (1.0/24)*(9*K0p*K0p - 63*K0p + 9*K0*K0pp + 143) *(f*f - 1)*(f*f - 1) )
     return P
 
 
-def E_V_BM(V, V0, K0, K0p, E0):
+def E_V_BM3(V, V0, K0, K0p, E0):
     f = V0/V
     E = E0 + (9*V0*K0/16)*0.006241509125883 * ( (f**(2.0/3.0)-1)**3 * K0p + (f**(2.0/3.0)-1)**2 * (6-4*(f**(2.0/3.0))))
     return E
@@ -152,9 +204,10 @@ def VinetPressure(V, V0,K0,K0p):
   P  = 3.0*K0 * (1.0-x)/x/x * np.exp( xi*(1.0-x) );
   return P
 
+if   BM_deg==2: P_V_BM = lambda V, V0,K0: P_V_BM2(V, V0,K0)
+elif BM_deg==3: P_V_BM = lambda V, V0,K0,K0p: P_V_BM3(V, V0,K0,K0p)
+elif BM_deg==4: P_V_BM = lambda V, V0,K0,K0p,K0pp: P_V_BM4(V, V0,K0,K0p,K0pp)
 
-fig = figure(1)   
-ax = subplot(111)
 
 
 #filename = "EOS_MgSiO3FeO_"+str(T0)+"K.dat"
@@ -196,6 +249,10 @@ try:
 except:
  T0=0
 
+
+#------------------------#
+#       LOG-LOG          #
+#------------------------#
 # FITTING A POLYNOMIAL IN LOG-LOG SPACE
 spl_V = InterpolatedUnivariateSpline(P,V)  # V(P)
 P_residual = 10.0                # Shift P by 10 upwards to prevent P=0.0 generating problems
@@ -207,74 +264,99 @@ V_loglogfit = lambda p: np.exp(loglog_fit(np.log(p+P_residual)))           #V(P)
 P_loglogfit = InterpolatedUnivariateSpline(V_loglogfit(pp[::-1]), pp[::-1]) #P(V)
 
 
+#------------------------#
+#    BIRCH MURNAGHAN     #
+#------------------------#
+'''
+Forcing P(V0) = P0 = min(P). V0 is not a parameter
+'''
+k0   = max(P)/10
+k0p  = 4
+k0pp = -(9*k0p*k0p -63*k0p + 143)/(9*k0)
+## Only K0,K0p as parameters. Forcing P(V0)=P0 = min(P) with V0 = max(V)
+if   BM_deg==2:
+ initial_guess = (k0)  # Initial guess of parameters K0, K0p
+ p_BM = lambda v,K0: min(P) + P_V_BM2(v, max(V),K0)
+elif BM_deg==3:
+ initial_guess = (k0, k0p)  # Initial guess of parameters K0, K0p
+ p_BM = lambda v,K0,K0p: min(P) + P_V_BM3(v, max(V),K0,K0p)
+elif BM_deg==4:
+ initial_guess = (k0, k0p, k0pp)  # Initial guess of parameters K0, K0p, K0pp
+ p_BM = lambda v,K0,K0p,K0pp: min(P) + P_V_BM4(v, max(V),K0,K0p,K0pp)
 
 
+popt_BM, pcov_BM= curve_fit(p_BM, V, P, p0=initial_guess, maxfev=10000)
+Perr_BM = np.sqrt(np.diag(pcov_BM))
+print ("Birch-Murnaghan of degree",BM_deg,"\n")
+if   BM_deg==2:
+ print ( "BM fit:       V0[A^3]= %9.4f            K0[GPa]= %9.4f %7.4f  %s"  % ( max(V), popt_BM[0], Perr_BM[0], "                            # Forcing P(V0)=P0 = min(P)" ) )
+elif BM_deg==3:
+ print ( "BM fit:       V0[A^3]= %9.4f            K0[GPa]= %9.4f %7.4f  K0p[GPa]= %7.4f %7.4f %s"  % ( max(V), popt_BM[0], Perr_BM[0], popt_BM[1], Perr_BM[1], "  # Forcing P(V0)=P0 = min(P)" ) )
+elif BM_deg==4:
+ print ( "BM fit:       V0[A^3]= %9.4f            K0[GPa]= %9.4f %7.4f  K0p[GPa]= %7.4f %7.4f  K0pp[GPa]= %7.4f %4.4f%s"  % ( max(V), popt_BM[0], Perr_BM[0], popt_BM[1], Perr_BM[1],popt_BM[2], Perr_BM[2], "  # Forcing P(V0)=P0 = min(P)" ) )
+
+
+'''
+## V0,K0,K0p as parameters.
+'''
+k0   = -V[0]*(P[-1]-P[0])/(V[-1]-V[0])  #max(P)/10
+k0p  = 4
+k0pp = -(9*k0p*k0p -63*k0p + 143)/(9*k0)
+if   BM_deg==2: initial_guess = (max(V),k0)            # Initial guess of parameters V0, K0
+elif BM_deg==3: initial_guess = (max(V),k0, k0p)       # Initial guess of parameters V0, K0, K0p
+elif BM_deg==4: initial_guess = (max(V),k0, k0p,k0pp)  # Initial guess of parameters V0, K0, K0p, K0pp
+
+npopt_BM, npcov_BM= curve_fit(P_V_BM, V, P, p0=initial_guess, maxfev=100000000)
+Perr_BM = np.sqrt(np.diag(npcov_BM))
+if   BM_deg==2:
+ print ( "BM fit:       V0[A^3]= %9.4f %9.4f  K0[GPa]= %9.4f %7.4f  %s"  % ( npopt_BM[0], Perr_BM[0], npopt_BM[1], Perr_BM[1], "                            # V0 as param" ) )
+elif BM_deg==3:
+ print ( "BM fit:       V0[A^3]= %9.4f %9.4f  K0[GPa]= %9.4f %7.4f  K0p[GPa]= %7.4f %7.4f %s"  % ( npopt_BM[0], Perr_BM[0], npopt_BM[1], Perr_BM[1], npopt_BM[2], Perr_BM[2], "  # V0 as param" ) )
+elif BM_deg==4:
+ print ( "BM fit:       V0[A^3]= %9.4f %9.4f  K0[GPa]= %9.4f %7.4f  K0p[GPa]= %7.4f %7.4f  K0pp[GPa]= %7.4f %4.4f%s"  % ( npopt_BM[0], Perr_BM[0], npopt_BM[1], Perr_BM[1], npopt_BM[2], Perr_BM[2], npopt_BM[3], Perr_BM[3], "  # V0 as param" ) )
+
+
+#------------------------#
+#         VINET          #
+#------------------------#
+initial_guess = (k0, k0p)  # Initial guess of Vinet parameters K0, K0p
+p_Vinet  = lambda v,K0,K0p: min(P) + VinetPressure(v, max(V),K0,K0p)
+popt_Vinet, pcov_Vinet = curve_fit(p_Vinet, V, P, p0=initial_guess, maxfev=1000000)
+Perr_Vinet = np.sqrt(np.diag(pcov_Vinet))
+print ( "Vinet fit:    V0[A^3]= %9.4f            K0[GPa]= %9.4f %7.4f  K0p[GPa]= %7.4f %7.4f %s"  % ( max(V), popt_Vinet[0], Perr_Vinet[0], popt_Vinet[1], Perr_Vinet[1], "  # Forcing P(V0)=P0 = min(P)" ) )
+
+initial_guess = (max(V),k0, k0p)  # Initial guess of parameters K0, K0p
+npopt_Vinet, npcov_Vinet = curve_fit(VinetPressure, V, P, p0=initial_guess, maxfev=1000000, bounds=(0,[3*max(V),2*k0,100]))
+Perr_Vinet = np.sqrt(np.diag(npcov_Vinet))
+print ( "Vinet fit:    V0[A^3]= %9.4f %9.4f  K0[GPa]= %9.4f %6.4f  K0p[GPa]= %7.4f %7.4f %s"  % ( npopt_Vinet[0], Perr_Vinet[0], npopt_Vinet[1], Perr_Vinet[1], npopt_Vinet[2], Perr_Vinet[2], "  # V0 as param" ) )
+
+
+# PLOTTING THE FIT WHERE P( max(V)=V0 ) = min(P) = P0
+if V0_as_param:
+ P_BM = lambda v:  P_V_BM(v, *npopt_BM)
+ P_Vinet = lambda v: VinetPressure(v, *npopt_Vinet)
+else:
+ P_BM = lambda v: min(P) + P_V_BM(v, max(V), *popt_BM)
+ P_Vinet = lambda v: p_Vinet(v, *popt_Vinet)
+
+
+#------------------------#
+#       PLOTTING         #
+#------------------------#
+fig = figure(1)   
+ax = subplot(111)
 #ax.errorbar(data[:,1], data[:,4], data[:,5], ls='', color='b', marker='s', ms=15, capsize=10,mfc='None', mec='b', mew=2, label=r'$P(V)$' + filename) ## all data
 #ax.errorbar(V, P, dP, marker='o', ls='',c='r',ms=10, capsize=10, mfc='pink', mec='r', mew=2, zorder=5,label=r'$P(V)$ at T='+str(T0)+' (filtered data)')  ## filtered data
 ax.errorbar(V, P, dP, marker='o', ls='',c='b',ms=10, capsize=10, mfc='lightblue', mec='b', mew=2, zorder=5,label=r'$P(V)$ at T='+str(T0))
 #ax.errorbar(V, P, dP,  marker='o', ls='-',c='b',ms=10, capsize=10, mfc='lightblue', mec='b', mew=2, zorder=5,label=r'$P(V)$ at T='+str(T0))  ## filtered data
 #ax.errorbar(V, E, dE,  marker='o', ls='-',c='b',ms=10, capsize=10, mfc='lightblue', mec='blue', mew=2, zorder=5,label=r'$P(V)$ at T='+str(T0))  ## filtered data
 
-#fit = lambda x: np.poly1d(np.polyfit(V, P,3))(x)
-#spl1 = InterpolatedUnivariateSpline(V[::-1],P[::-1])
-#vv =linspace(min(V),max(V),300)
-#CC=7.3694655; alphas= -0.16088872
-#alpha_inv = 1/alphas
-#pp =(vv*N/exp(CC))**alpha_inv
-#ax.plot(vv, pp,'-', c='limegreen',mec='k',ms=6, lw=4)
-#ax.plot([40**alphas*exp(CC)/N], [40], 'ro', mec='k',ms=20,zorder=5)
-
-#ax.set_xlim(10.5,11.5)
-#ax.set_ylim(0,160)
-#ax.set_xlabel("Volume ($\AA^3$)")
-##ax.set_ylabel("Energy (eV/atom)")
-#ax.set_ylabel("Pressure (GPa)")
-#savefig('E.png')
-#show()
-#exit()
-
-## V0,K0,K0p as parameters
-#initial_guess = (2*max(V), max(P)/10, 4)  # Initial guess of parameters V0,K0, K0p
-#popt_BM, pcov_BM= curve_fit(P_V_BM, V, P, p0=initial_guess, maxfev=10000)
-#P_BM = lambda v: P_V_BM(v, *popt_BM)
-#print ("BM V0,K0, K0p: ", popt_BM)
-#initial_guess = popt_BM  # Initial guess of parameters V0,K0, K0p
-#popt_Vinet, pcov_Vinet = curve_fit(VinetPressure, V, P, p0=initial_guess, maxfev=1000000)
-#P_Vinet = lambda v: VinetPressure(v, *popt_Vinet)
-#print ("Vinet V0,K0, K0p: ", popt_Vinet)
-
-
-## Only K0,K0p as parameters. Forcing P(V0)=P0 = min(P)
-initial_guess = (max(P)/10, 4)  # Initial guess of parameters K0, K0p
-p_BM = lambda v,K0,K0p: min(P) + P_V_BM(v, max(V),K0,K0p)
-popt_BM, pcov_BM= curve_fit(p_BM, V, P, p0=initial_guess, maxfev=10000)
-Perr_BM = np.sqrt(np.diag(pcov_BM))
-print ( "BM fit:       V0[A^3]= %6.4f  K0[GPa]= %9.4f %6.4f  K0p[GPa]= %7.4f %4.4f %s"  % ( max(V), popt_BM[0], Perr_BM[0], popt_BM[1], Perr_BM[1], "  # Forcing P(V0)=P0 = min(P)" ) )
-p_Vinet  = lambda v,K0,K0p: min(P) + VinetPressure(v, max(V),K0,K0p)
-popt_Vinet, pcov_Vinet = curve_fit(p_Vinet, V, P, p0=initial_guess, maxfev=1000000)
-Perr_Vinet = np.sqrt(np.diag(pcov_Vinet))
-print ( "Vinet fit:    V0[A^3]= %6.4f  K0[GPa]= %9.4f %6.4f  K0p[GPa]= %7.4f %4.4f %s"  % ( max(V), popt_Vinet[0], Perr_Vinet[0], popt_Vinet[1], Perr_Vinet[1], "  # Forcing P(V0)=P0 = min(P)" ) )
-
-## K0,K0p, and V0 as parameters. 
-initial_guess = (max(V),max(P)/10, 4)  # Initial guess of parameters V0, K0, K0p
-npopt_BM, npcov_BM= curve_fit(P_V_BM, V, P, p0=initial_guess, maxfev=5000)
-Perr_BM = np.sqrt(np.diag(npcov_BM))
-print ( "BM fit:       V0[A^3]= %6.4f %4.4f  K0[GPa]= %9.4f %6.4f  K0p[GPa]= %7.4f %4.4f %s"  % ( npopt_BM[0], Perr_BM[0], npopt_BM[1], Perr_BM[1], npopt_BM[2], Perr_BM[2], "  # V0 as param" ) )
-npopt_Vinet, npcov_Vinet = curve_fit(VinetPressure, V, P, p0=initial_guess, maxfev=1000000)
-Perr_Vinet = np.sqrt(np.diag(npcov_Vinet))
-print ( "Vinet fit:    V0[A^3]= %6.4f %4.4f  K0[GPa]= %9.4f %6.4f  K0p[GPa]= %7.4f %4.4f %s"  % ( npopt_Vinet[0], Perr_Vinet[0], npopt_Vinet[1], Perr_Vinet[1], npopt_Vinet[2], Perr_Vinet[2], "  # V0 as param" ) )
-
-
-P_BM = lambda v: min(P) + P_V_BM(v, max(V), *popt_BM)
-#P_BM = lambda v:  P_V_BM(v, *npopt_BM)
-P_Vinet = lambda v: p_Vinet(v, *popt_Vinet)
-
 
 vs = linspace(0.7*min(V), 1.1*max(V), 500)
 ps = P_BM(vs) #[P_BM(v) for v in vs]
 ax.plot(vs, ps,'k-', lw=4,label='$P(V)$ BM fit')
 ax.plot(vs, P_Vinet(vs),'--', c='limegreen',lw=3,label='$P(V)$ Vinet fit')
-ax.plot(vs, P_loglogfit(vs),'m',dashes=[5,1,1,1],lw=2,label=r'Log-Log polyfit ($\ln V=a + b*\ln P + c*\ln P^2 + d*\ln P^3$)')
+ax.plot(vs, P_loglogfit(vs),'m',dashes=[5,1,1,1],lw=2,label=r'Log-Log polyfit ($\ln V=a + b*\ln P + c*\ln^2 P + d*\ln^3 P$)')
 ax.set_xlabel("Volume ($\AA^3$)")
 ax.set_ylabel("Pressure (GPa)")
 ax.set_xlim(0.9*min(V),1.1*max(V))
@@ -341,7 +423,7 @@ for j in range(len(V)):
 
 predictors = ['BM',  'Vinet',  'loglog' ]
 P_fit = { 'BM': P_BM, 'Vinet': P_Vinet, 'loglog': P_loglogfit}
-Nparams = { 'BM': len(popt_BM),  'Vinet': len(popt_Vinet), 'loglog': 4 }
+Nparams = { 'BM': len(npopt_BM),  'Vinet': len(popt_Vinet), 'loglog': 4 }
 residuals = { predictor : P_fit[predictor](V)-P for predictor in predictors }
 sigma     = { predictor : std(residuals[predictor]) for predictor in predictors }
 RMSE      = { predictor : sqrt(mean(residuals[predictor]**2)) for predictor in predictors }
