@@ -291,9 +291,9 @@ print ("Birch-Murnaghan of degree",BM_deg,"\n")
 if   BM_deg==2:
  print ( "BM fit:       V0[A^3]= %9.4f            K0[GPa]= %9.4f %7.4f  %s"  % ( max(V), popt_BM[0], Perr_BM[0], "                            # Forcing P(V0)=P0 = min(P)" ) )
 elif BM_deg==3:
- print ( "BM fit:       V0[A^3]= %9.4f            K0[GPa]= %9.4f %7.4f  K0p[GPa]= %7.4f %7.4f %s"  % ( max(V), popt_BM[0], Perr_BM[0], popt_BM[1], Perr_BM[1], "  # Forcing P(V0)=P0 = min(P)" ) )
+ print ( "BM fit:       V0[A^3]= %9.4f            K0[GPa]= %9.4f %7.4f  K0p= %7.4f %7.4f %s"  % ( max(V), popt_BM[0], Perr_BM[0], popt_BM[1], Perr_BM[1], "  # Forcing P(V0)=P0 = min(P)" ) )
 elif BM_deg==4:
- print ( "BM fit:       V0[A^3]= %9.4f            K0[GPa]= %9.4f %7.4f  K0p[GPa]= %7.4f %7.4f  K0pp[GPa]= %7.4f %4.4f%s"  % ( max(V), popt_BM[0], Perr_BM[0], popt_BM[1], Perr_BM[1],popt_BM[2], Perr_BM[2], "  # Forcing P(V0)=P0 = min(P)" ) )
+ print ( "BM fit:       V0[A^3]= %9.4f            K0[GPa]= %9.4f %7.4f  K0p= %7.4f %7.4f  K0pp[1/GPa]= %7.4f %4.4f%s"  % ( max(V), popt_BM[0], Perr_BM[0], popt_BM[1], Perr_BM[1],popt_BM[2], Perr_BM[2], "  # Forcing P(V0)=P0 = min(P)" ) )
 
 
 '''
@@ -311,9 +311,9 @@ Perr_BM = np.sqrt(np.diag(npcov_BM))
 if   BM_deg==2:
  print ( "BM fit:       V0[A^3]= %9.4f %9.4f  K0[GPa]= %9.4f %7.4f  %s"  % ( npopt_BM[0], Perr_BM[0], npopt_BM[1], Perr_BM[1], "                            # V0 as param" ) )
 elif BM_deg==3:
- print ( "BM fit:       V0[A^3]= %9.4f %9.4f  K0[GPa]= %9.4f %7.4f  K0p[GPa]= %7.4f %7.4f %s"  % ( npopt_BM[0], Perr_BM[0], npopt_BM[1], Perr_BM[1], npopt_BM[2], Perr_BM[2], "  # V0 as param" ) )
+ print ( "BM fit:       V0[A^3]= %9.4f %9.4f  K0[GPa]= %9.4f %7.4f  K0p= %7.4f %7.4f %s"  % ( npopt_BM[0], Perr_BM[0], npopt_BM[1], Perr_BM[1], npopt_BM[2], Perr_BM[2], "  # V0 as param" ) )
 elif BM_deg==4:
- print ( "BM fit:       V0[A^3]= %9.4f %9.4f  K0[GPa]= %9.4f %7.4f  K0p[GPa]= %7.4f %7.4f  K0pp[GPa]= %7.4f %4.4f%s"  % ( npopt_BM[0], Perr_BM[0], npopt_BM[1], Perr_BM[1], npopt_BM[2], Perr_BM[2], npopt_BM[3], Perr_BM[3], "  # V0 as param" ) )
+ print ( "BM fit:       V0[A^3]= %9.4f %9.4f  K0[GPa]= %9.4f %7.4f  K0p= %7.4f %7.4f  K0pp[1/GPa]= %7.4f %4.4f%s"  % ( npopt_BM[0], Perr_BM[0], npopt_BM[1], Perr_BM[1], npopt_BM[2], Perr_BM[2], npopt_BM[3], Perr_BM[3], "  # V0 as param" ) )
 
 
 #------------------------#
@@ -323,12 +323,12 @@ initial_guess = (k0, k0p)  # Initial guess of Vinet parameters K0, K0p
 p_Vinet  = lambda v,K0,K0p: min(P) + VinetPressure(v, max(V),K0,K0p)
 popt_Vinet, pcov_Vinet = curve_fit(p_Vinet, V, P, p0=initial_guess, maxfev=1000000)
 Perr_Vinet = np.sqrt(np.diag(pcov_Vinet))
-print ( "Vinet fit:    V0[A^3]= %9.4f            K0[GPa]= %9.4f %7.4f  K0p[GPa]= %7.4f %7.4f %s"  % ( max(V), popt_Vinet[0], Perr_Vinet[0], popt_Vinet[1], Perr_Vinet[1], "  # Forcing P(V0)=P0 = min(P)" ) )
+print ( "Vinet fit:    V0[A^3]= %9.4f            K0[GPa]= %9.4f %7.4f  K0p= %7.4f %7.4f %s"  % ( max(V), popt_Vinet[0], Perr_Vinet[0], popt_Vinet[1], Perr_Vinet[1], "  # Forcing P(V0)=P0 = min(P)" ) )
 
 initial_guess = (max(V),k0, k0p)  # Initial guess of parameters K0, K0p
 npopt_Vinet, npcov_Vinet = curve_fit(VinetPressure, V, P, p0=initial_guess, maxfev=1000000, bounds=(0,[3*max(V),2*k0,100]))
 Perr_Vinet = np.sqrt(np.diag(npcov_Vinet))
-print ( "Vinet fit:    V0[A^3]= %9.4f %9.4f  K0[GPa]= %9.4f %6.4f  K0p[GPa]= %7.4f %7.4f %s"  % ( npopt_Vinet[0], Perr_Vinet[0], npopt_Vinet[1], Perr_Vinet[1], npopt_Vinet[2], Perr_Vinet[2], "  # V0 as param" ) )
+print ( "Vinet fit:    V0[A^3]= %9.4f %9.4f  K0[GPa]= %9.4f %7.4f  K0p= %7.4f %7.4f %s"  % ( npopt_Vinet[0], Perr_Vinet[0], npopt_Vinet[1], Perr_Vinet[1], npopt_Vinet[2], Perr_Vinet[2], "  # V0 as param" ) )
 
 
 # PLOTTING THE FIT WHERE P( max(V)=V0 ) = min(P) = P0
@@ -611,8 +611,8 @@ if deleting_points_test:
 ax2.set_xlabel("Volume ($\AA^3$)")
 #ax2.set_ylim(2*min(P_Vinet(V)-P),2.1*max(P_Vinet(V)-P))
 ymax = max(abs(P_Vinet(V)-P)) if max(abs(P_Vinet(V)-P)) > max(dP) else max(dP)
-ax2.set_ylim(-3*ymax,4*ymax)
-ax2.set_xlim(0.95*min(V),1.05*max(V))
+ax2.set_ylim(-3*ymax,3*ymax)
+ax2.set_xlim(0.98*min(V),1.02*max(V))
 ax2.legend(loc='best')
 
 #geometry = plt.get_current_fig_manager().window.geometry()
