@@ -505,16 +505,11 @@ if PTarget>0:
   v_fbv =  float(subprocess.check_output(fbv_path +' '+ filename + ' ' + str(colV+1) + ' ' + str(colP+1) + ' ' + str(colPE+1) + ' ' + str(p) + " | awk '/NewV/{print $NF}' ", shell=True )) 
   print ("P_Target[GPa]=  %9.2f  V_fbv[A^3]=     %9.4f" % (PTarget, v_fbv) )
 
- print("V*dP^2:",           (V*dP*0.00022937123)**2    )
- print("Suma de los V*dP^2:",       sum((V*dP*0.00022937123)**2)   )
- print("Sqrt de la Suma de los V*dP^2:", sqrt( sum((V*dP*0.00022937123)**2))  )
- dG = sqrt( sum((V[3:4]*dP[3:4]*0.00022937123)**2))
- print ("dGInt=",dG)
 
- def integrand_with_error(P):  return (V_spline.derivative()(P) * dP_spline(P))**2
- dGInt, _ = quad(V_spline, 148.878, PTarget)
- dGIntE = np.sqrt(quad(integrand_with_error, 148.878, PTarget)[0])
- print("dGInt=",dGInt*0.00022937123,dGIntE*0.00022937123)
+ #def integrand_with_error(P):  return (V_spline.derivative()(P) * dP_spline(P))**2
+ #dGInt, _ = quad(V_spline, 148.878, PTarget)
+ #dGIntE = np.sqrt(quad(integrand_with_error, 148.878, PTarget)[0])
+ #print("dGInt=",dGInt*0.00022937123,dGIntE*0.00022937123)
 
 
 
