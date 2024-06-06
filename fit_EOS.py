@@ -62,10 +62,13 @@ colV = 5  # Default column number for V[A^3]
 colP = 11  # Default column number for P[GPa]
 colPE = 12  # Default column number for P_error
 BM_deg = 3   # Birch-Murnaghan of 3rd order by default
+PTarget=-1   # Ptarget to guess the volume
 print_table = False
 deleting_points_test = False
 show_plots = True 
 V0_as_param = False
+fbv_path = os.path.expanduser("~/scripts/fbv")
+fbv_exists = os.path.isfile(os.path.expanduser(fbv_path))
 
 
 
@@ -130,6 +133,11 @@ else:
   idx = sys.argv.index('--BM4')
   sys.argv.pop(idx)
   BM_deg = 4
+
+ try:
+  PTarget=float(sys.argv[5])
+ except:
+  pass
 
 
 
@@ -249,6 +257,12 @@ try:
 except:
  T0=0
 
+# PRINTING THE ORIGINAL DATA
+print ("\n#EOS Data: " + filename)
+for j in range(len(V)):
+ print("i= %2i  V[A^3]= %9.4f  P[GPa]= %9.4f %6.4f" % (j, V[j], P[j], dP[j]) ) 
+
+
 
 #------------------------#
 #       LOG-LOG          #
@@ -262,6 +276,14 @@ loglog_fit = lambda x: np.poly1d(np.polyfit(log_P, log_V,3))(x)  # lnV = a + b*l
 pp = np.linspace(min(P),max(P))
 V_loglogfit = lambda p: np.exp(loglog_fit(np.log(p+P_residual)))           #V(P)
 P_loglogfit = InterpolatedUnivariateSpline(V_loglogfit(pp[::-1]), pp[::-1]) #P(V)
+
+#------------------------#
+#       SPLINE           #
+#------------------------#
+P_spline = InterpolatedUnivariateSpline(V[::-1],P[::-1])  # P(V)
+V_spline = InterpolatedUnivariateSpline(P,V)  # V(P)
+dP_spline = InterpolatedUnivariateSpline(P, dP)
+
 
 
 #------------------------#
@@ -285,7 +307,7 @@ elif BM_deg==4:
  p_BM = lambda v,K0,K0p,K0pp: min(P) + P_V_BM4(v, max(V),K0,K0p,K0pp)
 
 
-popt_BM, pcov_BM= curve_fit(p_BM, V, P, p0=initial_guess, maxfev=10000)
+popt_BM, pcov_BM= curve_fit(p_BM, V, P, p0=initial_guess ) #, maxfev=10000)
 Perr_BM = np.sqrt(np.diag(pcov_BM))
 print ("Birch-Murnaghan of degree",BM_deg,"\n")
 if   BM_deg==2:
@@ -306,7 +328,7 @@ if   BM_deg==2: initial_guess = (max(V),k0)            # Initial guess of parame
 elif BM_deg==3: initial_guess = (max(V),k0, k0p)       # Initial guess of parameters V0, K0, K0p
 elif BM_deg==4: initial_guess = (max(V),k0, k0p,k0pp)  # Initial guess of parameters V0, K0, K0p, K0pp
 
-npopt_BM, npcov_BM= curve_fit(P_V_BM, V, P, p0=initial_guess, maxfev=100000000)
+npopt_BM, npcov_BM= curve_fit(P_V_BM, V, P, p0=initial_guess) #, maxfev=100000000)
 Perr_BM = np.sqrt(np.diag(npcov_BM))
 if   BM_deg==2:
  print ( "BM fit:       V0[A^3]= %9.4f %9.4f  K0[GPa]= %9.4f %7.4f  %s"  % ( npopt_BM[0], Perr_BM[0], npopt_BM[1], Perr_BM[1], "                            # V0 as param" ) )
@@ -321,12 +343,12 @@ elif BM_deg==4:
 #------------------------#
 initial_guess = (k0, k0p)  # Initial guess of Vinet parameters K0, K0p
 p_Vinet  = lambda v,K0,K0p: min(P) + VinetPressure(v, max(V),K0,K0p)
-popt_Vinet, pcov_Vinet = curve_fit(p_Vinet, V, P, p0=initial_guess, maxfev=1000000)
+popt_Vinet, pcov_Vinet = curve_fit(p_Vinet, V, P, p0=initial_guess) #, maxfev=1000000)
 Perr_Vinet = np.sqrt(np.diag(pcov_Vinet))
 print ( "Vinet fit:    V0[A^3]= %9.4f            K0[GPa]= %9.4f %7.4f  K0p= %7.4f %7.4f %s"  % ( max(V), popt_Vinet[0], Perr_Vinet[0], popt_Vinet[1], Perr_Vinet[1], "  # Forcing P(V0)=P0 = min(P)" ) )
 
 initial_guess = (max(V),k0, k0p)  # Initial guess of parameters K0, K0p
-npopt_Vinet, npcov_Vinet = curve_fit(VinetPressure, V, P, p0=initial_guess, maxfev=1000000, bounds=(0,[3*max(V),2*k0,100]))
+npopt_Vinet, npcov_Vinet = curve_fit(VinetPressure, V, P, p0=initial_guess, bounds=(0,[3*max(V),2*k0,100]) ) #, maxfev=1000000 )
 Perr_Vinet = np.sqrt(np.diag(npcov_Vinet))
 print ( "Vinet fit:    V0[A^3]= %9.4f %9.4f  K0[GPa]= %9.4f %7.4f  K0p= %7.4f %7.4f %s"  % ( npopt_Vinet[0], Perr_Vinet[0], npopt_Vinet[1], Perr_Vinet[1], npopt_Vinet[2], Perr_Vinet[2], "  # V0 as param" ) )
 
@@ -354,9 +376,14 @@ ax.errorbar(V, P, dP, marker='o', ls='',c='b',ms=10, capsize=10, mfc='lightblue'
 
 vs = linspace(0.7*min(V), 1.1*max(V), 500)
 ps = P_BM(vs) #[P_BM(v) for v in vs]
-ax.plot(vs, ps,'k-', lw=4,label='$P(V)$ BM fit')
+ax.plot(vs, ps,'r-', lw=4,label='$P(V)$ BM fit')
 ax.plot(vs, P_Vinet(vs),'--', c='limegreen',lw=3,label='$P(V)$ Vinet fit')
-ax.plot(vs, P_loglogfit(vs),'m',dashes=[5,1,1,1],lw=2,label=r'Log-Log polyfit ($\ln V=a + b*\ln P + c*\ln^2 P + d*\ln^3 P$)')
+ax.plot(vs, P_spline(vs),'--',dashes=[10,3], c='darkblue', lw=2, label='$P(V)$ spline fit')
+ax.plot(vs, P_loglogfit(vs),'k',dashes=[5,1,1,1],lw=2,label=r'Log-Log polyfit ($\ln V=a + b*\ln P + c*\ln^2 P + d*\ln^3 P$)')
+if fbv_exists:
+ p_list =linspace(1.1*min(P),0.9*max(P),100)
+ vols_fbv = [  float(subprocess.check_output(fbv_path +' '+ filename + ' ' + str(colV+1) + ' ' + str(colP+1) + ' ' + str(colPE+1) + ' ' + str(p) + " | awk '/NewV/{print $NF}' ", shell=True ))  for p in p_list ]
+ ax.plot(vols_fbv, p_list , '-', dashes=[5,2,2,2], c='purple', lw=2, label='fbv')
 ax.set_xlabel("Volume ($\AA^3$)")
 ax.set_ylabel("Pressure (GPa)")
 ax.set_xlim(0.9*min(V),1.1*max(V))
@@ -398,14 +425,10 @@ plot(vs,ps-ps,'k--' ,label='$P$ Data')
 # dP = 20*dP
 
 
-
-
-
 ax2.errorbar(V, (P_BM(V)-P), 0*dP, color='red', marker='s', ms=12, capsize=10, mfc='pink', mec='red', mew=2, label=r'$P_{\rm BM}-P$')
 ax2.errorbar(V, (P_Vinet(V)-P), 0*dP, color='limegreen', marker='v', ms=10, capsize=10, mfc='None', mec='limegreen', mew=2,label=r'$P_{\rm Vinet}-P$')
 ax2.errorbar(V, (P_loglogfit(V)-P), 0*dP, color='k', lw=1, marker='d', ms=12, capsize=6, mfc='yellow', mec='k', mew=2, label=r'$P_{\rm log-log}-P$')
 ax2.errorbar(V, P-P, dP, marker='o', ls='', c='blue', ms=14, capsize=10, mfc='lightblue', mec='blue', mew=2, lw=2, zorder=-1, label=r'$P(V)$ ' + filename)
-
 
 ax2.set_ylabel(r"$P_{\rm fit}-P_{\rm data}$ (GPa)")
 
@@ -417,10 +440,6 @@ ax2.set_ylabel(r"$P_{\rm fit}-P_{\rm data}$ (GPa)")
 #ax2.set_ylabel("$PV$ (eV)")
 
 ### REPORT ###
-print ("\n#EOS Data: " + filename)
-for j in range(len(V)):
- print("i= %2i  V[A^3]= %9.4f  P[GPa]= %9.4f" % (j, V[j], P[j]) ) 
-
 predictors = ['BM',  'Vinet',  'loglog' ]
 P_fit = { 'BM': P_BM, 'Vinet': P_Vinet, 'loglog': P_loglogfit}
 Nparams = { 'BM': len(npopt_BM),  'Vinet': len(popt_Vinet), 'loglog': 4 }
@@ -429,44 +448,89 @@ sigma     = { predictor : std(residuals[predictor]) for predictor in predictors 
 RMSE      = { predictor : sqrt(mean(residuals[predictor]**2)) for predictor in predictors }
 R2        = { predictor : 1 - sum(residuals[predictor]**2) / sum((P-mean(P))**2) for predictor in predictors }
 chi_squared = {predictor:  sum( residuals[predictor]**2 / dP**2)/(len(dP)-Nparams[predictor])  for predictor in predictors}
-#print ("RESIDUALS BM:", residuals['BM'])
-#print ("RESIDUALS^2 BM:", residuals['BM']**2)
-#print ("error bars dP :", dP   )
-#print ("error bars dP2:", dP**2)
-#print ("My X2=", sum(  (P_BM(V)-P)**2 / dP**2)/(len(dP)-2))
-# P-values using the chi-squared distribution
-#degrees_of_freedom = len(predictors) - 1
-#p_values = {predictor: chi2.sf(chi_squared[predictor], degrees_of_freedom) for predictor in predictors}
+#for predictor in predictors:
+# print ("RESIDUALS",predictor,":", residuals[predictor])
+# print ("RESIDUALS^2",predictor,":", residuals[predictor]**2)
+# print ("error bars dP :", dP   )
+# print ("error bars dP2:", dP**2)
+# print ("My X2=", sum(      residuals[predictor]**2 / dP**2)/(len(dP)-Nparams[predictor]))
+# ## P-values using the chi-squared distribution
+# #degrees_of_freedom = len(predictors) - 1
+# #p_values = {predictor: chi2.sf(chi_squared[predictor], degrees_of_freedom) for predictor in predictors}
 sorted_predictors = sorted(predictors, key=lambda p: R2[p])
 
 print("\nRoot Mean Square Error of each fit:")
 for p in sorted_predictors:
  print("FIT: %-9s  RMSE_P[GPa]= %9.6f  std(residuals)= %9.6f  R2=  %10.8f  chi^2=  %10.8f" % (p, RMSE[p], sigma[p], R2[p], chi_squared[p]) )
 
+
+
+
+#----------------------------------------------#
+#  PRINT INTERPOLATED TABLE AND                #
+#  plot the fbv, spline BM & Vinet curves      #
+#----------------------------------------------#
 if print_table:
  print("\n# PRINTING TABLE OF INTERPOLATED VOLUMES")
  spl_V_BM    = InterpolatedUnivariateSpline(    P_BM(vs[::-1]), vs[::-1])  # V(P)
  spl_V_Vinet = InterpolatedUnivariateSpline( P_Vinet(vs[::-1]), vs[::-1])  # V(P)
  #p_list = arange(10,500,10)
  #p_list = arange(1e-10,201,1)
- p_list = linspace(1e-10,max(ps),20)
- ax.plot(spl_V_BM(p_list), p_list , 'o', mfc='None', mec='k', ms=8, label=r'$V_{\rm BM}(P)$ inv')
- ax.plot(spl_V_Vinet(p_list), p_list , 's', mfc='None', mec='limegreen', ms=8, label='Vinet $V(P)$ inv')
+ p_list = linspace(1e-10,max(ps),40)
+ print("# Plotting the predicted volumes for 20 pressures equally spread on the interval:")
+ ax.plot(spl_V_BM(p_list), p_list , 'o', mfc='None', mec='r', ms=8, mew=2, label=r'$V_{\rm BM}(P)$ inv')
+ ax.plot(spl_V_Vinet(p_list), p_list , 's', mfc='None', mec='limegreen', ms=8, mew=2, label='Vinet $V(P)$ inv')
  # Weighted fit by Burkhard fbv
- vols_fbv = [  float(subprocess.check_output("~/scripts/fbv " +filename+ ' ' + str(colV+1) + ' ' + str(colP+1) + ' ' + str(colPE+1) + ' ' + str(p) + " | awk '/NewV/{print $NF}' ", shell=True ))  for p in p_list]
- ax.plot(vols_fbv, p_list , 'd', mfc='None', mec='m', ms=15, mew=2,label='fbv')
- for j,p in enumerate(p_list):
-  print ("P[GPa]=  %7.2f  V_BM[A^3]=  %9.4f  V_Vinet[A^3]=  %9.4f  V_loglog[A^3]=  %9.4f  V_fbv[A^3]=  %9.4f  (V_Vinet-V_BM)/V_Vinet[%%]= %7.4f" % (p, spl_V_BM(p), spl_V_Vinet(p), V_loglogfit(p), vols_fbv[j], (1-spl_V_BM(p)/spl_V_Vinet(p))*100 )  )
+ try:
+  vols_fbv = [  float(subprocess.check_output(fbv_path +' '+ filename + ' ' + str(colV+1) + ' ' + str(colP+1) + ' ' + str(colPE+1) + ' ' + str(p) + " | awk '/NewV/{print $NF}' ", shell=True ))  for p in p_list ]
+  ax.plot(vols_fbv, p_list , '*', mfc='w', mec='purple', ms=12, mew=2,label='fbv')
+  for j,p in enumerate(p_list):
+   print ("P[GPa]=  %9.2f  V_BM[A^3]=  %9.4f  V_Vinet[A^3]=  %9.4f  V_loglog[A^3]=  %9.4f  V_fbv[A^3]=  %9.4f  (V_Vinet-V_BM)/V_Vinet[%%]= %7.4f" % (p, spl_V_BM(p), spl_V_Vinet(p), V_loglogfit(p), vols_fbv[j], (1-spl_V_BM(p)/spl_V_Vinet(p))*100 )  )
+ except:
+  for j,p in enumerate(p_list):
+   print ("P[GPa]=  %9.2f  V_BM[A^3]=  %9.4f  V_Vinet[A^3]=  %9.4f  V_loglog[A^3]=  %9.4f  (V_Vinet-V_BM)/V_Vinet[%%]= %7.4f" % (p, spl_V_BM(p), spl_V_Vinet(p), V_loglogfit(p), (1-spl_V_BM(p)/spl_V_Vinet(p))*100 )  )
 
 ax.legend()
 
 
-if deleting_points_test:
+if PTarget>0:
+ print("\nVolume at P_Target")
+ p = PTarget
+ spl_V_BM    = InterpolatedUnivariateSpline(    P_BM(vs[::-1]), vs[::-1])  # V(P)
+ spl_V_Vinet = InterpolatedUnivariateSpline( P_Vinet(vs[::-1]), vs[::-1])  # V(P)
+ print ("P_Target[GPa]=  %9.2f  V_BM[A^3]=      %9.4f" % (PTarget, spl_V_BM(p))    )
+ print ("P_Target[GPa]=  %9.2f  V_Vinet[A^3]=   %9.4f" % (PTarget, spl_V_Vinet(p)) )
+ print ("P_Target[GPa]=  %9.2f  V_loglog[A^3]=  %9.4f" % (PTarget, V_loglogfit(p)) )
+ if fbv_exists:
+  v_fbv =  float(subprocess.check_output(fbv_path +' '+ filename + ' ' + str(colV+1) + ' ' + str(colP+1) + ' ' + str(colPE+1) + ' ' + str(p) + " | awk '/NewV/{print $NF}' ", shell=True )) 
+  print ("P_Target[GPa]=  %9.2f  V_fbv[A^3]=     %9.4f" % (PTarget, v_fbv) )
+
+ print("V*dP^2:",           (V*dP*0.00022937123)**2    )
+ print("Suma de los V*dP^2:",       sum((V*dP*0.00022937123)**2)   )
+ print("Sqrt de la Suma de los V*dP^2:", sqrt( sum((V*dP*0.00022937123)**2))  )
+ dG = sqrt( sum((V[3:4]*dP[3:4]*0.00022937123)**2))
+ print ("dGInt=",dG)
+
+ def integrand_with_error(P):  return (V_spline.derivative()(P) * dP_spline(P))**2
+ dGInt, _ = quad(V_spline, 148.878, PTarget)
+ dGIntE = np.sqrt(quad(integrand_with_error, 148.878, PTarget)[0])
+ print("dGInt=",dGInt*0.00022937123,dGIntE*0.00022937123)
+
+
+
+
+#----------------------------------------------#
+#  PRINTING RESULTS OF DELETING POINTS TEST    #
+#  when the --test flag is active              #
+#----------------------------------------------#
+if deleting_points_test:   #  --test 
  V_org = array(V)
  P_org = array(P)
+
  print("\n# DELETING POINTS TEST: removing one by one")
- #predictors = ['BM',  'Vinet',  'loglog', 'fbv' ]
  predictors = ['BM',  'Vinet',  'loglog']
+ if fbv_exists:  predictors += [ 'fbv' ]
+ 
  counter_best  = {predictor: 0 for predictor in predictors}
  counter_worst = {predictor: 0 for predictor in predictors}
  for k in range(1,len(V_org)):
@@ -477,25 +541,21 @@ if deleting_points_test:
   P = delete(P_org, k)
   #print ("Point removed:", V0,P0)
 
-  ### V0,K0,K0p as parameters
-  #initial_guess = (2*max(V), max(P)/10, 4)  # Initial guess of parameters V0,K0, K0p
-  #popt_Press, pcov_Press = curve_fit(P_V_BM, V, P, p0=initial_guess, maxfev=10000)
-  #P_BM = lambda v:P_V_BM(v, *popt_Press)
-  ##print ("BM V0,K0, K0p: ", popt_Press)
-  #initial_guess = popt_BM  # Initial guess of parameters V0,K0, K0p
-  #popt_Vinet, pcov_Vinet = curve_fit(VinetPressure, V, P, p0=initial_guess, maxfev=1000000)
-  #P_Vinet = lambda v:VinetPressure(v, *popt_Vinet)
-  ##print ("Vinet V0,K0, K0p: ", popt_Vinet)
 
   ## Only K0,K0p as parameters. Forcing P(V0)=P0 = min(P)
-  initial_guess = (max(P)/10, 4)  # Initial guess of parameters K0, K0p
-  p_BM = lambda v,K0,K0p: min(P) + P_V_BM(v, max(V),K0,K0p)
-  popt_BM, pcov_BM= curve_fit(p_BM, V, P, p0=initial_guess, maxfev=10000)
+  if   BM_deg==3:
+   initial_guess = (k0, k0p)  # Initial guess of parameters K0, K0p
+   p_BM = lambda v,K0,K0p: min(P) + P_V_BM(v, max(V),K0,K0p)
+  elif BM_deg==4:
+   initial_guess = (k0, k0p, k0pp)  # Initial guess of parameters K0, K0p
+   p_BM = lambda v,K0,K0p,K0pp: min(P) + P_V_BM(v, max(V),K0,K0p,K0pp)
+  popt_BM, pcov_BM= curve_fit(p_BM, V, P, p0=initial_guess) #, maxfev=10000)
   P_BM = lambda v: min(P) + P_V_BM(v, max(V), *popt_BM)
   #print ("BM ,K0, K0p: ", max(V), popt_BM)
-  initial_guess = popt_BM  # Initial guess of parameters V0,K0, K0p
+
+  initial_guess = [popt_BM[0],popt_BM[1]]  # Initial guess of parameters V0,K0, K0p
   p_Vinet  = lambda v,K0,K0p: min(P) + VinetPressure(v, max(V),K0,K0p)
-  popt_Vinet, pcov_Vinet = curve_fit(p_Vinet, V, P, p0=initial_guess, maxfev=1000000)
+  popt_Vinet, pcov_Vinet = curve_fit(p_Vinet, V, P, p0=initial_guess) #, maxfev=1000000)
   P_Vinet = lambda v: p_Vinet(v, *popt_Vinet)
   #print ("Vinet V0,K0, K0p: ", max(V), popt_Vinet)
 
@@ -503,8 +563,8 @@ if deleting_points_test:
   command = "grep -v '^#' " +filename+ "| awk 'NR!= " +str(k)+ "+1{print }' > tmp.tmp"
   subprocess.check_output(command, shell=True)
   command = "~/scripts/fbv " + ' tmp.tmp ' + str(colV+1) + ' ' + str(colP+1) + ' ' + str(colPE+1) + ' ' + str(P0) + " | awk '/NewV/{print $NF}' "
-  #v_fbv = float(subprocess.check_output(command, shell=True))
   v_fbv = 0
+  if fbv_exists: v_fbv = float(subprocess.check_output(command, shell=True))
 
   spl_V_BM    = InterpolatedUnivariateSpline(    P_BM(vs[::-1]), vs[::-1])  # V(P)
   spl_V_Vinet = InterpolatedUnivariateSpline( P_Vinet(vs[::-1]), vs[::-1])  # V(P)
@@ -514,8 +574,9 @@ if deleting_points_test:
   V_loglogfit_err = 100*(V_loglogfit(P0)/V0-1)
   if v_fbv != 0:   V_fbv_err = 100*(v_fbv/V0-1)
 
-  #vlist =  { 'BM': V_BM_err, 'Vinet': V_Vinet_err, 'loglog': V_loglogfit_err, 'fbv': V_fbv_err }
   vlist =  { 'BM': V_BM_err, 'Vinet': V_Vinet_err, 'loglog': V_loglogfit_err}
+  if fbv_exists:  vlist =  { 'BM': V_BM_err, 'Vinet': V_Vinet_err, 'loglog': V_loglogfit_err, 'fbv': V_fbv_err }
+
   sorted_vlist = sorted(vlist.items(), key=lambda item: abs(item[1]))
   #print ("Best:", sorted_vlist[0][0], "Worst:", sorted_vlist[-1][0])
   sorted_vlist = sorted(vlist.items(), key=lambda item: abs(item[1]))
@@ -523,8 +584,10 @@ if deleting_points_test:
   counter_best[sorted_vlist[0][0]] += 1 
   counter_worst[sorted_vlist[-1][0]] += 1 
 
-  #print ("P0[GPa]=  %7.2f  V0[A^3]=  %7.2f  V_BM[A^3]=  %7.2f  V_Vinet[A^3]=  %7.2f  V_loglog[A^3]=  %7.2f  V_fbv[A^3]=  %7.2f  V_BM_err[%%]= %6.3f  V_Vinet_err[%%]= %6.3f  V_loglog_err[%%]= %6.3f  V_fbv_err[%%]= %6.3f"  % (P0, V0, spl_V_BM(P0),  spl_V_Vinet(P0), V_loglogfit(P0), v_fbv,   V_BM_err, V_Vinet_err, V_loglogfit_err, V_fbv_err )  )
-  print ("P0[GPa]=  %7.2f  V0[A^3]=  %7.2f  V_BM[A^3]=  %7.2f  V_Vinet[A^3]=  %7.2f  V_loglog[A^3]=  %7.2f  V_BM_err[%%]= %6.3f  V_Vinet_err[%%]= %6.3f  V_loglog_err[%%]= %6.3f"  % (P0, V0, spl_V_BM(P0),  spl_V_Vinet(P0), V_loglogfit(P0),   V_BM_err, V_Vinet_err, V_loglogfit_err)  )
+  if fbv_exists:
+   print ("P0[GPa]=  %7.2f  V0[A^3]=  %7.2f  V_BM[A^3]=  %7.2f  V_Vinet[A^3]=  %7.2f  V_loglog[A^3]=  %7.2f  V_fbv[A^3]=  %7.2f  V_BM_err[%%]= %6.3f  V_Vinet_err[%%]= %6.3f  V_loglog_err[%%]= %6.3f  V_fbv_err[%%]= %6.3f"  % (P0, V0, spl_V_BM(P0),  spl_V_Vinet(P0), V_loglogfit(P0), v_fbv,   V_BM_err, V_Vinet_err, V_loglogfit_err, V_fbv_err )  )
+  else:
+   print ("P0[GPa]=  %7.2f  V0[A^3]=  %7.2f  V_BM[A^3]=  %7.2f  V_Vinet[A^3]=  %7.2f  V_loglog[A^3]=  %7.2f  V_BM_err[%%]= %6.3f  V_Vinet_err[%%]= %6.3f  V_loglog_err[%%]= %6.3f"  % (P0, V0, spl_V_BM(P0),  spl_V_Vinet(P0), V_loglogfit(P0),   V_BM_err, V_Vinet_err, V_loglogfit_err)  )
 
  print ("BEST SCORES:  ", counter_best, "out of", len(V_org)-1)
  print ("WORST SCORES: ", counter_worst, "out of", len(V_org)-1)
@@ -560,14 +623,19 @@ if deleting_points_test:
   ##print ("Vinet V0,K0, K0p: ", popt_Vinet)
 
   ## Only K0,K0p as parameters. Forcing P(V0)=P0 = min(P)
-  initial_guess = (max(P)/10, 4)  # Initial guess of parameters K0, K0p
-  p_BM = lambda v,K0,K0p: min(P) + P_V_BM(v, max(V),K0,K0p)
-  popt_BM, pcov_BM= curve_fit(p_BM, V, P, p0=initial_guess, maxfev=10000)
+  if   BM_deg==3:
+   initial_guess = (k0, k0p)  # Initial guess of parameters K0, K0p
+   p_BM = lambda v,K0,K0p: min(P) + P_V_BM(v, max(V),K0,K0p)
+  elif BM_deg==4:
+   initial_guess = (k0, k0p, k0pp)  # Initial guess of parameters K0, K0p
+   p_BM = lambda v,K0,K0p,K0pp: min(P) + P_V_BM(v, max(V),K0,K0p,K0pp)
+  popt_BM, pcov_BM= curve_fit(p_BM, V, P, p0=initial_guess) #, maxfev=10000)
   P_BM = lambda v: min(P) + P_V_BM(v, max(V), *popt_BM)
   #print ("BM ,K0, K0p: ", max(V), popt_BM)
-  initial_guess = popt_BM  # Initial guess of parameters V0,K0, K0p
+
+  initial_guess = [popt_BM[0],popt_BM[1]]  # Initial guess of parameters V0,K0, K0p
   p_Vinet  = lambda v,K0,K0p: min(P) + VinetPressure(v, max(V),K0,K0p)
-  popt_Vinet, pcov_Vinet = curve_fit(p_Vinet, V, P, p0=initial_guess, maxfev=1000000)
+  popt_Vinet, pcov_Vinet = curve_fit(p_Vinet, V, P, p0=initial_guess) #, maxfev=1000000)
   P_Vinet = lambda v: p_Vinet(v, *popt_Vinet)
   #print ("Vinet V0,K0, K0p: ", max(V), popt_Vinet)
 
