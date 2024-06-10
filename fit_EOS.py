@@ -506,7 +506,7 @@ if PTarget>0:
   print ("P_Target[GPa]=  %9.2f  V_fbv[A^3]=     %9.4f" % (PTarget, v_fbv) )
 
 
- #def integrand_with_error(P):  return (V_spline.derivative()(P) * dP_spline(P))**2
+ def integrand_with_error(P):  return (V_spline.derivative()(P) * dP_spline(P))**2
  #dGInt, _ = quad(V_spline, 148.878, PTarget)
  #dGIntE = np.sqrt(quad(integrand_with_error, 148.878, PTarget)[0])
  #print("dGInt=",dGInt*0.00022937123,dGIntE*0.00022937123)
