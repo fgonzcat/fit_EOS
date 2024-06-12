@@ -63,6 +63,7 @@ colP = 11  # Default column number for P[GPa]
 colPE = 12  # Default column number for P_error
 BM_deg = 3   # Birch-Murnaghan of 3rd order by default
 PTarget=-1   # Ptarget to guess the volume
+P1 =    -1   # To calculate integral V(P)dP from P1 to PTarget
 print_table = False
 deleting_points_test = False
 show_plots = True 
@@ -133,6 +134,11 @@ else:
   idx = sys.argv.index('--BM4')
   sys.argv.pop(idx)
   BM_deg = 4
+ if '--P1' in sys.argv:
+  idx = sys.argv.index('--P1')
+  sys.argv.pop(idx)
+  P1 = float(sys.argv.pop(idx))
+
 
  try:
   PTarget=float(sys.argv[5])
@@ -328,7 +334,7 @@ if   BM_deg==2: initial_guess = (max(V),k0)            # Initial guess of parame
 elif BM_deg==3: initial_guess = (max(V),k0, k0p)       # Initial guess of parameters V0, K0, K0p
 elif BM_deg==4: initial_guess = (max(V),k0, k0p,k0pp)  # Initial guess of parameters V0, K0, K0p, K0pp
 
-npopt_BM, npcov_BM= curve_fit(P_V_BM, V, P, p0=initial_guess) #, maxfev=100000000)
+npopt_BM, npcov_BM= curve_fit(P_V_BM, V, P, p0=initial_guess ) #, maxfev=100000000)
 Perr_BM = np.sqrt(np.diag(npcov_BM))
 if   BM_deg==2:
  print ( "BM fit:       V0[A^3]= %9.4f %9.4f  K0[GPa]= %9.4f %7.4f  %s"  % ( npopt_BM[0], Perr_BM[0], npopt_BM[1], Perr_BM[1], "                            # V0 as param" ) )
@@ -506,10 +512,19 @@ if PTarget>0:
   print ("P_Target[GPa]=  %9.2f  V_fbv[A^3]=     %9.4f" % (PTarget, v_fbv) )
 
 
- def integrand_with_error(P):  return (V_spline.derivative()(P) * dP_spline(P))**2
+ #def integrand_with_error(P):  return (V_spline.derivative()(P) * dP_spline(P))**2
  #dGInt, _ = quad(V_spline, 148.878, PTarget)
  #dGIntE = np.sqrt(quad(integrand_with_error, 148.878, PTarget)[0])
  #print("dGInt=",dGInt*0.00022937123,dGIntE*0.00022937123)
+ 
+ PBest = min(P, key=lambda p: abs(p-PTarget))
+ print("PBest[GPa]= %9.1f"% (PBest) )
+ dGInt, _ = quad( spl_V_BM , P1, PTarget)
+ print("Integral from P0[GPa]= %9.1f to P_Target[GPa]= %9.1f:  dGInt= %14.12f " % (P1,PTarget, dGInt*0.00022937123) )
+ 
+
+ 
+ 
 
 
 
