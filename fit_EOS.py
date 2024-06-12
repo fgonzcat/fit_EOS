@@ -69,7 +69,12 @@ deleting_points_test = False
 show_plots = True 
 V0_as_param = False
 fbv_path = os.path.expanduser("~/scripts/fbv")
-fbv_exists = os.path.isfile(os.path.expanduser(fbv_path))
+try:
+ subprocess.run([fbv_path],check=True)
+ fbv_exists = True
+except:
+ fbv_exists = False
+
 
 
 
@@ -96,6 +101,18 @@ if len(sys.argv) == 1:
  Usage: {0}   ... --V0-as-param   --> Treat V0 as another fitting parameter [ do not force the default P(V0) = P0, where P0=min(P), V0=max(P) ]
 
  No arguments assumes V[A^3]-col= 6, P[GPa]-col= 12,  P_error-col= 13
+
+ Reported Errors:
+   residuals = P_fit(V)-P
+   sigma     = std(residuals) 
+   RMSE      = sqrt(mean(residuals)^2)
+   R2        =  1 - sum(residuals^2)
+   chi_squared = sum(residuals**2 / dP**2)
+       chi^2 < 1 ---> Line passes more than 2/3 of 1 sigma / sigma too big / Overfit
+       chi^2 > 1 ---> Line misses more than 1/3 of 1 sigma / sigma too small / inadeq. model
+       chi^2 = 1 ---> Line passes through 2/3 of 1 sigma & 95% of 2 sigma 
+                      Model with chi^2 closest to 1, wins. 
+ 
  """.format(sys.argv[0])
  
  print(message)
@@ -334,7 +351,15 @@ if   BM_deg==2: initial_guess = (max(V),k0)            # Initial guess of parame
 elif BM_deg==3: initial_guess = (max(V),k0, k0p)       # Initial guess of parameters V0, K0, K0p
 elif BM_deg==4: initial_guess = (max(V),k0, k0p,k0pp)  # Initial guess of parameters V0, K0, K0p, K0pp
 
-npopt_BM, npcov_BM= curve_fit(P_V_BM, V, P, p0=initial_guess ) #, maxfev=100000000)
+BM_bounds = [3*max(V),2*k0]
+lowe_BM_bounds = [0,0]
+if   BM_deg==3:
+ BM_bounds += [2*k0p]
+ lower_BM_bounds = [0,0,0]
+elif BM_deg==4:
+ BM_bounds += [2*k0p,100]
+ lower_BM_bounds = [0,0,0,-100]
+npopt_BM, npcov_BM= curve_fit(P_V_BM, V, P, p0=initial_guess,  bounds=(lower_BM_bounds,BM_bounds) ) #, maxfev=100000000)
 Perr_BM = np.sqrt(np.diag(npcov_BM))
 if   BM_deg==2:
  print ( "BM fit:       V0[A^3]= %9.4f %9.4f  K0[GPa]= %9.4f %7.4f  %s"  % ( npopt_BM[0], Perr_BM[0], npopt_BM[1], Perr_BM[1], "                            # V0 as param" ) )
