@@ -298,12 +298,18 @@ log_V = np.log(V)
 loglog_fit = lambda x: np.poly1d(np.polyfit(log_P, log_V,3))(x)  # lnV = a + b*lnP + c*lnP^2 + d*lnP^3  <==>  V(P) = exp(a)*P^{b+c*lnP+d*(lnP)^2}
 pp = np.linspace(min(P),max(P))
 V_loglogfit = lambda p: np.exp(loglog_fit(np.log(p+P_residual)))           #V(P)
-P_loglogfit = InterpolatedUnivariateSpline(V_loglogfit(pp[::-1]), pp[::-1]) #P(V)
+try:
+ P_loglogfit = InterpolatedUnivariateSpline(V_loglogfit(pp[::-1]), pp[::-1]) #P(V)
+except:
+ P_loglogfit = InterpolatedUnivariateSpline(V_loglogfit(pp), pp) #P(V)
 
 #------------------------#
 #       SPLINE           #
 #------------------------#
-P_spline = InterpolatedUnivariateSpline(V[::-1],P[::-1])  # P(V)
+try:
+ P_spline = InterpolatedUnivariateSpline(V[::-1],P[::-1])  # P(V)
+except: 
+ P_spline = InterpolatedUnivariateSpline(V,P)  # P(V)
 V_spline = InterpolatedUnivariateSpline(P,V)  # V(P)
 dP_spline = InterpolatedUnivariateSpline(P, dP)
 
@@ -315,7 +321,7 @@ dP_spline = InterpolatedUnivariateSpline(P, dP)
 '''
 Forcing P(V0) = P0 = min(P). V0 is not a parameter
 '''
-k0   = max(P)/10
+k0   = -V[0]*(P[-1]-P[0])/(V[-1]-V[0])  #max(P)/10
 k0p  = 4
 k0pp = -(9*k0p*k0p -63*k0p + 143)/(9*k0)
 ## Only K0,K0p as parameters. Forcing P(V0)=P0 = min(P) with V0 = max(V)
@@ -351,15 +357,20 @@ if   BM_deg==2: initial_guess = (max(V),k0)            # Initial guess of parame
 elif BM_deg==3: initial_guess = (max(V),k0, k0p)       # Initial guess of parameters V0, K0, K0p
 elif BM_deg==4: initial_guess = (max(V),k0, k0p,k0pp)  # Initial guess of parameters V0, K0, K0p, K0pp
 
-BM_bounds = [3*max(V),2*k0]
-lowe_BM_bounds = [0,0]
+BM_bounds = [2*max(V),2*k0]
+lower_BM_bounds = [0,0]
 if   BM_deg==3:
- BM_bounds += [2*k0p]
+ BM_bounds += [3*k0p]
  lower_BM_bounds = [0,0,0]
 elif BM_deg==4:
- BM_bounds += [2*k0p,100]
- lower_BM_bounds = [0,0,0,-100]
-npopt_BM, npcov_BM= curve_fit(P_V_BM, V, P, p0=initial_guess,  bounds=(lower_BM_bounds,BM_bounds) ) #, maxfev=100000000)
+ BM_bounds += [3*k0p,20]
+ lower_BM_bounds = [0,0,0,-20]
+print("Lower Bounds", lower_BM_bounds)
+print("Upper Bounds", BM_bounds)
+try:
+ npopt_BM, npcov_BM= curve_fit(P_V_BM, V, P, p0=initial_guess,  bounds=(lower_BM_bounds,BM_bounds) , maxfev=10000)
+except:
+ npopt_BM, npcov_BM= curve_fit(P_V_BM, V, P, p0=initial_guess,                                       maxfev=10000)
 Perr_BM = np.sqrt(np.diag(npcov_BM))
 if   BM_deg==2:
  print ( "BM fit:       V0[A^3]= %9.4f %9.4f  K0[GPa]= %9.4f %7.4f  %s"  % ( npopt_BM[0], Perr_BM[0], npopt_BM[1], Perr_BM[1], "                            # V0 as param" ) )
@@ -379,7 +390,10 @@ Perr_Vinet = np.sqrt(np.diag(pcov_Vinet))
 print ( "Vinet fit:    V0[A^3]= %9.4f            K0[GPa]= %9.4f %7.4f  K0p= %7.4f %7.4f %s"  % ( max(V), popt_Vinet[0], Perr_Vinet[0], popt_Vinet[1], Perr_Vinet[1], "  # Forcing P(V0)=P0 = min(P)" ) )
 
 initial_guess = (max(V),k0, k0p)  # Initial guess of parameters K0, K0p
-npopt_Vinet, npcov_Vinet = curve_fit(VinetPressure, V, P, p0=initial_guess, bounds=(0,[3*max(V),2*k0,100]) ) #, maxfev=1000000 )
+try:
+ npopt_Vinet, npcov_Vinet = curve_fit(VinetPressure, V, P, p0=initial_guess, bounds=(0,[3*max(V),2*k0,100]) ) #, maxfev=1000000 )
+except:
+ npopt_Vinet, npcov_Vinet = curve_fit(VinetPressure, V, P, p0=initial_guess,                                     maxfev=1000000 )
 Perr_Vinet = np.sqrt(np.diag(npcov_Vinet))
 print ( "Vinet fit:    V0[A^3]= %9.4f %9.4f  K0[GPa]= %9.4f %7.4f  K0p= %7.4f %7.4f %s"  % ( npopt_Vinet[0], Perr_Vinet[0], npopt_Vinet[1], Perr_Vinet[1], npopt_Vinet[2], Perr_Vinet[2], "  # V0 as param" ) )
 
@@ -482,6 +496,7 @@ chi_squared = {predictor:  sum( residuals[predictor]**2 / dP**2)/(len(dP)-Nparam
 #for predictor in predictors:
 # print ("RESIDUALS",predictor,":", residuals[predictor])
 # print ("RESIDUALS^2",predictor,":", residuals[predictor]**2)
+# print ("SIGMA      ",predictor,":", sigma[predictor])
 # print ("error bars dP :", dP   )
 # print ("error bars dP2:", dP**2)
 # print ("My X2=", sum(      residuals[predictor]**2 / dP**2)/(len(dP)-Nparams[predictor]))
@@ -527,11 +542,22 @@ ax.legend()
 if PTarget>0:
  print("\nVolume at P_Target")
  p = PTarget
- spl_V_BM    = InterpolatedUnivariateSpline(    P_BM(vs[::-1]), vs[::-1])  # V(P)
- spl_V_Vinet = InterpolatedUnivariateSpline( P_Vinet(vs[::-1]), vs[::-1])  # V(P)
- print ("P_Target[GPa]=  %9.2f  V_BM[A^3]=      %9.4f" % (PTarget, spl_V_BM(p))    )
- print ("P_Target[GPa]=  %9.2f  V_Vinet[A^3]=   %9.4f" % (PTarget, spl_V_Vinet(p)) )
- print ("P_Target[GPa]=  %9.2f  V_loglog[A^3]=  %9.4f" % (PTarget, V_loglogfit(p)) )
+ V_BM = 0.0
+ V_Vinet = 0.0
+ try:
+  spl_V_BM    = InterpolatedUnivariateSpline(    P_BM(vs), vs)  # V(P)
+  V_BM = spl_V_BM(PTarget)
+ except:
+  pass 
+ try:
+  spl_V_Vinet = InterpolatedUnivariateSpline( P_Vinet(vs), vs)  # V(P)
+  V_Vinet = spl_V_Vinet(PTarget)
+ except:
+  pass
+ print ("P_Target[GPa]=  %9.2f  V_BM[A^3]=      %9.4f" % (PTarget, V_BM)    )
+ print ("P_Target[GPa]=  %9.2f  V_Vinet[A^3]=   %9.4f" % (PTarget, V_Vinet) )
+ print ("P_Target[GPa]=  %9.2f  V_loglog[A^3]=  %9.4f" % (PTarget, V_loglogfit(PTarget)) )
+ print ("P_Target[GPa]=  %9.2f  V_spline[A^3]=  %9.4f" % (PTarget, V_spline(PTarget)) )
  if fbv_exists:
   v_fbv =  float(subprocess.check_output(fbv_path +' '+ filename + ' ' + str(colV+1) + ' ' + str(colP+1) + ' ' + str(colPE+1) + ' ' + str(p) + " | awk '/NewV/{print $NF}' ", shell=True )) 
   print ("P_Target[GPa]=  %9.2f  V_fbv[A^3]=     %9.4f" % (PTarget, v_fbv) )
@@ -542,10 +568,11 @@ if PTarget>0:
  #dGIntE = np.sqrt(quad(integrand_with_error, 148.878, PTarget)[0])
  #print("dGInt=",dGInt*0.00022937123,dGIntE*0.00022937123)
  
- PBest = min(P, key=lambda p: abs(p-PTarget))
- print("PBest[GPa]= %9.1f"% (PBest) )
- dGInt, _ = quad( spl_V_BM , P1, PTarget)
- print("Integral from P0[GPa]= %9.1f to P_Target[GPa]= %9.1f:  dGInt= %14.12f " % (P1,PTarget, dGInt*0.00022937123) )
+ if V_BM != 0.0:
+  PBest = min(P, key=lambda p: abs(p-PTarget))
+  print("PBest[GPa]= %9.1f"% (PBest) )
+  dGInt, _ = quad( spl_V_BM , P1, PTarget)
+  print("Integral from P0[GPa]= %9.1f to P_Target[GPa]= %9.1f:  dGInt= %14.12f " % (P1,PTarget, dGInt*0.00022937123) )
  
 
  
