@@ -152,3 +152,83 @@ PBest[GPa]=     377.5
 Integral from P1[GPa]= 390.00 to P_Target[GPa]= 400.00:  ∆G[eV]= 32.283297304166
 ```
 The value of $\Delta G$ is provided in eV, provided that $P$ is in GPa and $V$ is in Å<sup>3</sup>.
+
+## Deleting points test: which fit performs better?
+Using the ```--test``` option, the code will remove one point and refit the data. Since the removed point $(P_0,V_0)$ contains the known volume, the fit that better predicts $V_0$ for fixed $P_0$ is, in principle, the most reliable. A second round removing two random datapoints from the dataset is performed in order to test the consistency:
+
+```bash
+./fit_EOS.py EOS_H2O_liq_7000K.dat 6 12 13  --noplots --test
+```
+
+```python
+**** FITTING EOS ****
+by Felipe Gonzalez [Berkeley 05-19-2023]
+
+
+#EOS Data: EOS_H2O_liq_7000K.dat
+i=  0  V[A^3]=  615.3997  P[GPa]=  248.5530 0.4480
+i=  1  V[A^3]=  582.1348  P[GPa]=  288.8810 0.5930
+i=  2  V[A^3]=  552.2817  P[GPa]=  331.7850 0.6170
+i=  3  V[A^3]=  525.3412  P[GPa]=  377.5250 0.5820
+i=  4  V[A^3]=  500.9067  P[GPa]=  432.4520 0.7800
+i=  5  V[A^3]=  478.6442  P[GPa]=  484.7840 0.7780
+i=  6  V[A^3]=  458.2763  P[GPa]=  544.4000 0.7670
+i=  7  V[A^3]=  439.5712  P[GPa]=  606.9460 0.7630
+i=  8  V[A^3]=  422.3331  P[GPa]=  675.0050 0.9210
+i=  9  V[A^3]=  406.3960  P[GPa]=  748.0080 0.9930
+i= 10  V[A^3]=  391.6180  P[GPa]=  823.7650 0.6850
+Birch-Murnaghan of degree 3
+
+BM fit:       V0[A^3]=  615.3997            K0[GPa]=  631.2788  1.7987  K0p=  3.2841  0.0106   # Forcing P(V0)=P0 = min(P)
+BM fit:       V0[A^3]= 1230.7993   13.6088  K0[GPa]=  101.5101  3.9648  K0p=  3.6423  0.0108   # V0 as param
+Vinet fit:    V0[A^3]=  615.3997            K0[GPa]=  637.4325  2.2784  K0p=  3.2031  0.0197   # Forcing P(V0)=P0 = min(P)
+Vinet fit:    V0[A^3]= 1846.1990  128.8517  K0[GPa]=   17.0905  5.2243  K0p=  5.3649  0.2220   # V0 as param
+
+Root Mean Square Error of each fit:
+FIT: BM         RMSE_P[GPa]=  1.663355  std(residuals)=  1.651954  R2=  0.99991682  chi^2=  6.37417020
+FIT: Vinet      RMSE_P[GPa]=  1.437456  std(residuals)=  1.430398  R2=  0.99993788  chi^2=  4.73731468
+FIT: loglog     RMSE_P[GPa]=  0.986809  std(residuals)=  0.986807  R2=  0.99997073  chi^2=  3.00585571
+
+# DELETING POINTS TEST: removing one by one
+P0[GPa]=   288.88  V0[A^3]=   582.13  V_BM[A^3]=   580.62  V_Vinet[A^3]=   580.83  V_loglog[A^3]=   581.95  V_BM_err[%]=  -0.260  V_Vinet_err[%]=  -0.223  V_loglog_err[%]=  -0.032
+P0[GPa]=   331.79  V0[A^3]=   552.28  V_BM[A^3]=   551.05  V_Vinet[A^3]=   551.32  V_loglog[A^3]=   552.61  V_BM_err[%]=  -0.223  V_Vinet_err[%]=  -0.175  V_loglog_err[%]=   0.060
+P0[GPa]=   377.52  V0[A^3]=   525.34  V_BM[A^3]=   525.32  V_Vinet[A^3]=   525.61  V_loglog[A^3]=   526.54  V_BM_err[%]=  -0.004  V_Vinet_err[%]=   0.051  V_loglog_err[%]=   0.229
+P0[GPa]=   432.45  V0[A^3]=   500.91  V_BM[A^3]=   499.34  V_Vinet[A^3]=   499.48  V_loglog[A^3]=   499.46  V_BM_err[%]=  -0.313  V_Vinet_err[%]=  -0.285  V_loglog_err[%]=  -0.289
+P0[GPa]=   484.78  V0[A^3]=   478.64  V_BM[A^3]=   478.92  V_Vinet[A^3]=   478.97  V_loglog[A^3]=   478.69  V_BM_err[%]=   0.058  V_Vinet_err[%]=   0.068  V_loglog_err[%]=   0.010
+P0[GPa]=   544.40  V0[A^3]=   458.28  V_BM[A^3]=   458.70  V_Vinet[A^3]=   458.64  V_loglog[A^3]=   458.17  V_BM_err[%]=   0.091  V_Vinet_err[%]=   0.079  V_loglog_err[%]=  -0.024
+P0[GPa]=   606.95  V0[A^3]=   439.57  V_BM[A^3]=   440.39  V_Vinet[A^3]=   440.26  V_loglog[A^3]=   439.90  V_BM_err[%]=   0.186  V_Vinet_err[%]=   0.158  V_loglog_err[%]=   0.076
+P0[GPa]=   675.00  V0[A^3]=   422.33  V_BM[A^3]=   422.88  V_Vinet[A^3]=   422.76  V_loglog[A^3]=   422.59  V_BM_err[%]=   0.129  V_Vinet_err[%]=   0.101  V_loglog_err[%]=   0.061
+P0[GPa]=   748.01  V0[A^3]=   406.40  V_BM[A^3]=   406.40  V_Vinet[A^3]=   406.33  V_loglog[A^3]=   406.33  V_BM_err[%]=   0.001  V_Vinet_err[%]=  -0.017  V_loglog_err[%]=  -0.015
+P0[GPa]=   823.76  V0[A^3]=   391.62  V_BM[A^3]=   390.57  V_Vinet[A^3]=   390.84  V_loglog[A^3]=   391.23  V_BM_err[%]=  -0.268  V_Vinet_err[%]=  -0.200  V_loglog_err[%]=  -0.098
+BEST SCORES:   {'BM': 2, 'Vinet': 1, 'loglog': 7} out of 10
+WORST SCORES:  {'BM': 7, 'Vinet': 2, 'loglog': 1} out of 10
+BEST FOR EXTRAPOLATIONS:   loglog
+Overall scores: {'BM': -5, 'Vinet': -1, 'loglog': 6}
+Best predictor: loglog
+
+# DELETING TWO RANDOM POINTS TEST: (P0,V0) is one of them
+P0[GPa]=   484.78  V0[A^3]=   478.64  V_BM[A^3]=   478.79  V_Vinet[A^3]=   478.86  V_loglog[A^3]=   478.73  V_BM_err[%]=   0.030  V_Vinet_err[%]=   0.044  V_loglog_err[%]=   0.018
+P0[GPa]=   331.79  V0[A^3]=   552.28  V_BM[A^3]=   550.97  V_Vinet[A^3]=   551.23  V_loglog[A^3]=   552.59  V_BM_err[%]=  -0.237  V_Vinet_err[%]=  -0.191  V_loglog_err[%]=   0.055
+P0[GPa]=   331.79  V0[A^3]=   552.28  V_BM[A^3]=   550.79  V_Vinet[A^3]=   551.04  V_loglog[A^3]=   552.18  V_BM_err[%]=  -0.269  V_Vinet_err[%]=  -0.225  V_loglog_err[%]=  -0.018
+P0[GPa]=   675.00  V0[A^3]=   422.33  V_BM[A^3]=   423.03  V_Vinet[A^3]=   422.88  V_loglog[A^3]=   422.78  V_BM_err[%]=   0.164  V_Vinet_err[%]=   0.129  V_loglog_err[%]=   0.105
+P0[GPa]=   544.40  V0[A^3]=   458.28  V_BM[A^3]=   458.92  V_Vinet[A^3]=   458.80  V_loglog[A^3]=   458.28  V_BM_err[%]=   0.140  V_Vinet_err[%]=   0.115  V_loglog_err[%]=   0.001
+P0[GPa]=   675.00  V0[A^3]=   422.33  V_BM[A^3]=   422.91  V_Vinet[A^3]=   422.79  V_loglog[A^3]=   422.60  V_BM_err[%]=   0.136  V_Vinet_err[%]=   0.108  V_loglog_err[%]=   0.064
+P0[GPa]=   331.79  V0[A^3]=   552.28  V_BM[A^3]=   550.79  V_Vinet[A^3]=   551.04  V_loglog[A^3]=   552.18  V_BM_err[%]=  -0.269  V_Vinet_err[%]=  -0.225  V_loglog_err[%]=  -0.018
+P0[GPa]=   432.45  V0[A^3]=   500.91  V_BM[A^3]=   499.40  V_Vinet[A^3]=   499.52  V_loglog[A^3]=   499.46  V_BM_err[%]=  -0.300  V_Vinet_err[%]=  -0.276  V_loglog_err[%]=  -0.288
+P0[GPa]=   606.95  V0[A^3]=   439.57  V_BM[A^3]=   440.40  V_Vinet[A^3]=   440.27  V_loglog[A^3]=   439.90  V_BM_err[%]=   0.189  V_Vinet_err[%]=   0.158  V_loglog_err[%]=   0.076
+P0[GPa]=   331.79  V0[A^3]=   552.28  V_BM[A^3]=   550.79  V_Vinet[A^3]=   551.04  V_loglog[A^3]=   552.18  V_BM_err[%]=  -0.269  V_Vinet_err[%]=  -0.225  V_loglog_err[%]=  -0.018
+P0[GPa]=   331.79  V0[A^3]=   552.28  V_BM[A^3]=   550.97  V_Vinet[A^3]=   551.23  V_loglog[A^3]=   552.59  V_BM_err[%]=  -0.237  V_Vinet_err[%]=  -0.191  V_loglog_err[%]=   0.055
+P0[GPa]=   606.95  V0[A^3]=   439.57  V_BM[A^3]=   440.50  V_Vinet[A^3]=   440.35  V_loglog[A^3]=   439.90  V_BM_err[%]=   0.212  V_Vinet_err[%]=   0.176  V_loglog_err[%]=   0.076
+P0[GPa]=   331.79  V0[A^3]=   552.28  V_BM[A^3]=   551.05  V_Vinet[A^3]=   551.32  V_loglog[A^3]=   552.62  V_BM_err[%]=  -0.223  V_Vinet_err[%]=  -0.174  V_loglog_err[%]=   0.061
+P0[GPa]=   748.01  V0[A^3]=   406.40  V_BM[A^3]=   406.48  V_Vinet[A^3]=   406.39  V_loglog[A^3]=   406.41  V_BM_err[%]=   0.021  V_Vinet_err[%]=  -0.001  V_loglog_err[%]=   0.004
+P0[GPa]=   748.01  V0[A^3]=   406.40  V_BM[A^3]=   406.40  V_Vinet[A^3]=   406.33  V_loglog[A^3]=   406.25  V_BM_err[%]=   0.001  V_Vinet_err[%]=  -0.017  V_loglog_err[%]=  -0.035
+P0[GPa]=   331.79  V0[A^3]=   552.28  V_BM[A^3]=   550.97  V_Vinet[A^3]=   551.23  V_loglog[A^3]=   552.59  V_BM_err[%]=  -0.237  V_Vinet_err[%]=  -0.191  V_loglog_err[%]=   0.055
+P0[GPa]=   331.79  V0[A^3]=   552.28  V_BM[A^3]=   551.19  V_Vinet[A^3]=   551.44  V_loglog[A^3]=   552.58  V_BM_err[%]=  -0.197  V_Vinet_err[%]=  -0.153  V_loglog_err[%]=   0.053
+P0[GPa]=   331.79  V0[A^3]=   552.28  V_BM[A^3]=   551.02  V_Vinet[A^3]=   551.34  V_loglog[A^3]=   553.24  V_BM_err[%]=  -0.229  V_Vinet_err[%]=  -0.170  V_loglog_err[%]=   0.173
+P0[GPa]=   675.00  V0[A^3]=   422.33  V_BM[A^3]=   422.86  V_Vinet[A^3]=   422.75  V_loglog[A^3]=   422.60  V_BM_err[%]=   0.125  V_Vinet_err[%]=   0.098  V_loglog_err[%]=   0.064
+P0[GPa]=   675.00  V0[A^3]=   422.33  V_BM[A^3]=   422.84  V_Vinet[A^3]=   422.74  V_loglog[A^3]=   422.55  V_BM_err[%]=   0.121  V_Vinet_err[%]=   0.096  V_loglog_err[%]=   0.053
+BEST SCORES:   {'BM': 1, 'Vinet': 3, 'loglog': 16} out of 20
+WORST SCORES:  {'BM': 18, 'Vinet': 1, 'loglog': 1} out of 20
+Overall scores: {'BM': -17, 'Vinet': 2, 'loglog': 15}
+Best predictor two-points test: loglog
+```
