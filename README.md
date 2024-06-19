@@ -137,7 +137,7 @@ Integral from P1[GPa]=  -1.00 to P_Target[GPa]= 400.00:  ∆G[eV]= 1840.26483185
 ```
 
 ## $\Delta G=\int_{P_1}^{P_{\rm Target}} V(P)dP = G(P_{\rm Target})- G(P_1)$
-As you can see above, providing the target pressure already provides the value of the integral for $\Delta G$, but the default value is $P_1= -1$ GPa. To change the value of $P_1$, use ```--P1``` and   
+As you can see above, providing the target pressure already provides the value of the integral for $\Delta G$, but the default value is $P_1= -1$ GPa. To change the value of $P_1$, use ```--P1``` and a value (integer or float) to the right:
 ```bash
 ./fit_EOS.py EOS_H2O_liq_7000K.dat 6 12 13 400.0 --noplots --BM4 --P1 390
 ```
