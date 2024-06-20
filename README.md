@@ -154,7 +154,7 @@ Integral from P1[GPa]= 390.00 to P_Target[GPa]= 400.00:  ∆G[eV]= 32.2832973041
 The value of $\Delta G$ is provided in eV, provided that $P$ is in GPa and $V$ is in Å<sup>3</sup>.
 
 ## Deleting points test: which fit performs better?
-Using the ```--test``` option, the code will remove one point and refit the data. Since the removed point $(P_0,V_0)$ contains the known volume, the fit that better predicts $V_0$ for fixed $P_0$ is, in principle, the most reliable. A second round removing two random datapoints from the dataset is performed in order to test the consistency:
+Using the ```--test``` option, the code will remove one point from the input dataset and refit the data. Since the removed point $(P_0,V_0)$ contains the known volume, the fit that better predicts $V_0$ for fixed $P_0$ is, in principle, the most reliable. A second round of tests removing two random datapoints from the dataset is performed in order to test the consistency:
 
 ```bash
 ./fit_EOS.py EOS_H2O_liq_7000K.dat 6 12 13  --noplots --test
