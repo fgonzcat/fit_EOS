@@ -54,13 +54,15 @@ from scipy.interpolate import InterpolatedUnivariateSpline
 from scipy.integrate import quad
 import sys,os, subprocess
 import random
+import matplotlib.gridspec as gridspec
 
 
 
 filename = "/home/fgonzalez/EOS_Fe_sol_6000K.dat"  # Example, must be provided as argument
 colV = 5  # Default column number for V[A^3]
+colVE= -1 # Default column number for volume error dV[A^3]
 colP = 11  # Default column number for P[GPa]
-colPE = 12  # Default column number for P_error
+colPE = 12  # Default column number for P error dP[GPa]
 BM_deg = 3   # Birch-Murnaghan of 3rd order by default
 PTarget=-1   # Ptarget to guess the volume
 P1 =    -1   # To calculate integral V(P)dP from P1 to PTarget
@@ -68,6 +70,7 @@ print_table = False
 deleting_points_test = False
 show_plots = True 
 V0_as_param = False
+Merge_Figures=False
 fbv_path = os.path.expanduser("~/scripts/fbv")
 try:
  subprocess.run([fbv_path],check=True)
@@ -92,6 +95,7 @@ if len(sys.argv) == 1:
  Usage: {0}  EOS_Fe_sol_6000K.dat   V[A^3]-col P[GPa]-col P_error-col
  Usage: {0}  EOS_Fe_sol_6000K.dat       6         12          13
  Usage: {0}  EOS_H2O_liq_7000K.dat      6         12          13  --BM4 --V0-as-param
+ Usage: {0}  $EOS                       6         12          13    150   --BM4 
  Usage: {0}   ... -p              --> print V(P) 
  Usage: {0}   ... --test          --> deleting-points performance test 
  Usage: {0}   ... --noplots       --> don't plot 
@@ -99,6 +103,9 @@ if len(sys.argv) == 1:
  Usage: {0}   ... --BM3           --> Birch-Murnaghan 3th order (default)
  Usage: {0}   ... --BM4           --> Birch-Murnaghan 4th order
  Usage: {0}   ... --V0-as-param   --> Treat V0 as another fitting parameter [ do not force the default P(V0) = P0, where P0=min(P), V0=max(P) ]
+ Usage: {0}   ... --PTarget 150   --> prints the volume at P_Target from each model and the integral  ∆G = int_P1^P_Target V(P) dP = G(P_Target) - G(P1)
+ Usage: {0}   ... --P1      110   --> Changes P1 for the integral above to 110 GPa. 
+ Usage: {0}   ... --merge-plots   --> Just one P(V) figure with two plots instead of separate figures
 
  No arguments assumes V[A^3]-col= 6, P[GPa]-col= 12,  P_error-col= 13
 
@@ -139,6 +146,10 @@ else:
   idx = sys.argv.index('--V0-as-param')
   sys.argv.pop(idx)
   V0_as_param = True
+ if '--merge-plots' in sys.argv:
+  idx = sys.argv.index('--merge-plots')
+  sys.argv.pop(idx)
+  Merge_Figures = True
  if '--BM2' in sys.argv:
   idx = sys.argv.index('--BM2')
   sys.argv.pop(idx)
@@ -155,18 +166,20 @@ else:
   idx = sys.argv.index('--P1')
   sys.argv.pop(idx)
   P1 = float(sys.argv.pop(idx))
-
-
- try:
-  PTarget=float(sys.argv[5])
- except:
-  pass
+ if '--PTarget' in sys.argv:
+  idx = sys.argv.index('--PTarget')
+  sys.argv.pop(idx)
+  PTarget = float(sys.argv.pop(idx))
 
 
 
  if len(sys.argv)==2: pass
- elif len(sys.argv) >= 4 and all(arg.isdigit() for arg in sys.argv[2:5]):
-  colV,colP,colPE = [ int(c)-1 for c in sys.argv[2:5] ]
+ elif len(sys.argv) >= 5:
+  if len(sys.argv) >= 6 and all(arg.isdigit() for arg in sys.argv[2:6]):   # like  fit_EOS.py $EOS 5 7 2 4
+   colV,colVE,colP,colPE = [ int(c)-1 for c in sys.argv[2:6] ]
+   print("V Ve and P PE en columnas",colV,colVE,colP,colPE)
+  elif all(arg.isdigit() for arg in sys.argv[2:5]):                        # like  fit_EOS.py $EOS 12 14 15
+   colV,colP,colPE = [ int(c)-1 for c in sys.argv[2:5] ]
  else:
   print ("Your input: " , sys.argv)
   print("You need to specify the column numbers: V[A^3]-col P[GPa]-col P_error-col")
@@ -181,6 +194,7 @@ else:
 GPaA3_to_eV=0.0062415091
 Ha_to_eV = 27.211386
 Ha_to_meV = Ha_to_eV * 1000
+kB = 0.000086173303372 # eV/K
 fig_size = [700/72.27 ,520/72.27]
 #fig_size = [350/72.27 ,250/72.27]
 params = {'axes.labelsize': 22, 'legend.fontsize': 16,
@@ -193,10 +207,9 @@ params = {'axes.labelsize': 22, 'legend.fontsize': 16,
           'text.usetex': False, 'figure.figsize': fig_size, 'axes.linewidth': 2,
           'xtick.major.pad': 5,
           'ytick.major.pad': 10,
-          'figure.subplot.bottom': 0.110,'figure.subplot.top': 0.975,'figure.subplot.left': 0.160,'figure.subplot.right': 0.960}
+          'figure.subplot.bottom': 0.120,'figure.subplot.top': 0.975,'figure.subplot.left': 0.160,'figure.subplot.right': 0.960}
 
 
-kB = 0.000086173303372 # eV/K
 rcParams.update(params)
 
 
@@ -225,7 +238,7 @@ def P_V_BM4(V, V0,K0,K0p,K0pp):
 
 def E_V_BM3(V, V0, K0, K0p, E0):
     f = V0/V
-    E = E0 + (9*V0*K0/16)*0.006241509125883 * ( (f**(2.0/3.0)-1)**3 * K0p + (f**(2.0/3.0)-1)**2 * (6-4*(f**(2.0/3.0))))
+    E = E0 + (9*V0*K0/16)*GPaA3_to_eV * ( (f**(2.0/3.0)-1)**3 * K0p + (f**(2.0/3.0)-1)**2 * (6-4*(f**(2.0/3.0))))
     return E
 
 def VinetPressure(V, V0,K0,K0p):
@@ -259,13 +272,21 @@ try:
  dP  = data[:,5]
  E   = data[:,6] * Ha_to_eV
  dE  = data[:,7] * Ha_to_eV
+ dV = 0.0
 except:
  #V,P,dP  = np.loadtxt(filename, usecols=(colV,colP,colPE), dtype=float, comments='#', unpack=True)  # x, y, yerr 
- data    = np.loadtxt(filename, usecols=(colV,colP,colPE), dtype=float, comments='#',unpack=True)  # x, y, yerr 
+ if colVE>0:  
+  data    = np.loadtxt(filename, usecols=(colV,colVE,colP,colPE), dtype=float, comments='#',unpack=True)  # x, y, yerr 
+ else:
+  data    = np.loadtxt(filename, usecols=(colV,colP,colPE), dtype=float, comments='#',unpack=True)  # x, y, yerr 
  sorted_indices = data[0].argsort()[::-1]    # Sort by increasing volumes and then invert
  data = data[:, sorted_indices]
  positive = data[1] >= 0.0  # (P>=0)
- V,P,dP  = [ arr[positive] for arr in data] 
+ if colVE>0:  
+  V,dV,P,dP  = [ arr[positive] for arr in data] 
+ else:
+  V,P,dP  = [ arr[positive] for arr in data] 
+  dV = 0.0
  #dP = 3*dP
 
 
@@ -405,14 +426,31 @@ else:
  P_Vinet = lambda v: p_Vinet(v, *popt_Vinet)
 
 
-#------------------------#
-#       PLOTTING         #
-#------------------------#
-fig = figure(1)   
-ax = subplot(111)
+
+
+#---------------------------------#
+#       PLOTTING FIGURE 1         #
+#          P(V) and fits          #
+#---------------------------------#
+if Merge_Figures:
+ fig_size = [700/72.27 ,720/72.27]
+ rcParams.update({ 'figure.figsize': fig_size, 'figure.subplot.bottom': 0.090 } )
+
+ fig = figure('Pressure vs Volume')   
+ gs = gridspec.GridSpec(2, 1)
+ ax = subplot(gs[0:1,0])
+ ax2 = subplot(gs[1,0], sharex= ax)
+ setp(ax.get_xticklabels(),visible=False)
+ subplots_adjust(hspace=0.0)
+else:
+ fig = figure('Pressure vs. Volume')   
+ ax = subplot(111)
+ fig2 = figure('Residuals')
+ ax2 = subplot(111)
+
 #ax.errorbar(data[:,1], data[:,4], data[:,5], ls='', color='b', marker='s', ms=15, capsize=10,mfc='None', mec='b', mew=2, label=r'$P(V)$' + filename) ## all data
 #ax.errorbar(V, P, dP, marker='o', ls='',c='r',ms=10, capsize=10, mfc='pink', mec='r', mew=2, zorder=5,label=r'$P(V)$ at T='+str(T0)+' (filtered data)')  ## filtered data
-ax.errorbar(V, P, dP, marker='o', ls='',c='b',ms=10, capsize=10, mfc='lightblue', mec='b', mew=2, zorder=5,label=r'$P(V)$ at T='+str(T0))
+ax.errorbar(V, P, dP, marker='o', ls='',c='b',ms=10, capsize=10, mfc='lightblue', mec='b', mew=2, zorder=5,label=r'$P(V)$')
 #ax.errorbar(V, P, dP,  marker='o', ls='-',c='b',ms=10, capsize=10, mfc='lightblue', mec='b', mew=2, zorder=5,label=r'$P(V)$ at T='+str(T0))  ## filtered data
 #ax.errorbar(V, E, dE,  marker='o', ls='-',c='b',ms=10, capsize=10, mfc='lightblue', mec='blue', mew=2, zorder=5,label=r'$P(V)$ at T='+str(T0))  ## filtered data
 
@@ -424,7 +462,7 @@ ps = P_BM(vs) #[P_BM(v) for v in vs]
 ax.plot(vs, ps,'r-', lw=4,label='$P(V)$ BM fit')
 ax.plot(vs, P_Vinet(vs),'--', c='limegreen',lw=3,label='$P(V)$ Vinet fit')
 ax.plot(vs, P_spline(vs),'--',dashes=[10,3], c='darkblue', lw=2, label='$P(V)$ spline fit')
-ax.plot(vs, P_loglogfit(vs),'k',dashes=[5,1,1,1],lw=2,label=r'Log-Log polyfit ($\ln V=a + b*\ln P + c*\ln^2 P + d*\ln^3 P$)')
+ax.plot(vs, P_loglogfit(vs),'k',dashes=[5,1,1,1],lw=2,label=r'Log-Log polyfit '+'\n'+r'($\ln V=a + b*\ln P + c*\ln^2 P + d*\ln^3 P$)')
 if fbv_exists:
  p_list =linspace(1.1*min(P),0.9*max(P),100)
  vols_fbv = [  float(subprocess.check_output(fbv_path +' '+ filename + ' ' + str(colV+1) + ' ' + str(colP+1) + ' ' + str(colPE+1) + ' ' + str(p) + " | awk '/NewV/{print $NF}' ", shell=True ))  for p in p_list ]
@@ -434,19 +472,16 @@ ax.set_ylabel("Pressure (GPa)")
 ax.set_xlim(min(V)-2*dv,max(V)+2*dv)
 ax.set_ylim(0.9*min(P),1.5*max(P))
 
-legend()
 #ax.set_xscale('log')
 #ax.set_yscale('log')
 #savefig('PV.png')
 
 
 
-
 #----------------------------------------------#
+#            PLOTTING FIGURE 2                 #
 # Difference between the fit and the points    #
 #----------------------------------------------#
-fig2 = figure(2)
-ax2 = subplot(111)
 ps=np.array(ps)
 plot(vs,ps-ps,'k--' ,label='$P$ Data')
 
@@ -464,10 +499,84 @@ ax2.set_ylabel(r"$P_{\rm fit}-P_{\rm data}$ (GPa)")
 #ax2.set_xlim(600,1050)
 #ax2.set_ylabel("$PV$ (eV)")
 
+
+#----------------------------------------------#
+#            PLOTTING FIGURE 3                 #
+# Raymond Jeanloz's F-vs-f                     #
+#----------------------------------------------#
+rcParams.update(params)
+fig3 = figure(3)
+ax3 = subplot(111)
+ax3.set_xlabel(r'$f= \frac{1}{2}[ (V_0/V)^{2/3} -1 ]$')
+ax3.set_ylabel(r'$F= P/[ 3f \; (1+2f)^{5/2}  ] $')
+
+V0 = 1.0 #1.5*max(V) 
+f = 0.5*( (V0/V)**(2.0/3) -1 )
+F = P / ( 3*f * (1+2*f)**(5.0/2)  )
+#dF = abs(F/P)*dP
+
+dV0=0   # No error in the measurement of V0, but here for consistency
+dfdV0=0
+dfdV = -(V0/V)**(2.0/3)/(3*V)
+df2 = (dfdV*dV)**2 + (dfdV0*dV0)**2
+dFdf = P*(F/P)**2 * (  3*(1+2*f)**(5.0/2)  +  15*f*(1+2*f)**(3.0/2)  )
+dF = sqrt( (F*dP/P)**2 + (dFdf)**2*df2  )
+ax3.errorbar(f, F, dF , marker='o', ls='-',c='b',ms=10, capsize=10, mfc='lightblue', mec='b', mew=2, zorder=5,label=r'$F(f)$')
+
+coeffs, cov_matrix = np.polyfit(f, F,1, w=1/dF, cov=True)
+errors = sqrt(diag(cov_matrix))
+K0 = coeffs[-1]  # The last one in polyfit is the x**0 coefficient [p(x) = p[0] * x**deg + ... + p[deg]]
+K0E = errors[-1]
+K0p = 4-2*coeffs[-2]/coeffs[-1]/3    # Because a1 = -2 K0 xi = - 2 K0 (3/4)(K0'-4) in F=  a0 + a1 f, with a0= K0
+K0pE= abs(K0p-4)*sqrt( (errors[-2]/coeffs[-2])**2 + (errors[-1]/coeffs[-1])**2 ) 
+F_vs_f_fit = lambda x: np.poly1d(coeffs)(x) 
+ff = linspace(min(f), max(f))
+ax3.plot( ff, F_vs_f_fit(ff), 'r--' )
+
+
+def P_Ff(v):
+ f = 0.5*( (V0/v)**(2.0/3) -1 )
+ pp= F_vs_f_fit(f) * ( 3*f * (1+2*f)**(5.0/2)  )
+ return pp
+
+#PP_Raymond = F_vs_f_fit(ff) * ( 3*ff * (1+2*ff)**(5.0/2)  )
+#vv_Raymond = 1/(2*ff + 1)**(3.0/2) * V0
+vv_Raymond = vs
+PP_Raymond = P_Ff(vs)
+ax.plot(vv_Raymond, PP_Raymond, '-', c='orange',dashes=[5,2,1,1], lw=2, label='$P(V)$ $F$-$f$ fit')
+ax2.errorbar(V, ( F_vs_f_fit(f)*(3*f * (1+2*f)**(5.0/2)) -P), 0*dP, color='k', marker='D', ms= 8, capsize=10, mfc='orange', mec='k', mew=1, label='$P(V)$ $F$-$f$ fit')
+
+
+#f = 0.5*( (V0/vs)**(2.0/3) -1 )
+#F = P_BM(vs) / ( 3*f * (1+2*f)**(5.0/2)  )
+#ax3.plot(f, F, 'b--')
+
+
+#ax3.errorbar(1-V/V0, P, yerr=dP, xerr=abs(1/dfdV)*sqrt(df2), marker='o', ls='',c='b',ms= 8, capsize= 6, mfc='lightblue', mec='b', mew=2, zorder=5,label=r'$P(V)$ at T='+str(T0))
+#ax3.plot(1-vs/V0, P_BM(vs), 'k-') 
+#ax3.plot(1-vv_Raymond/V0, PP_Raymond, 'm-', dashes=[5,2,1,1], lw=2)
+#ax3.set_ylim(0,440)
+
+ax2.set_xlabel("Volume ($\AA^3$)")
+#ax2.set_ylim(2*min(P_Vinet(V)-P),2.1*max(P_Vinet(V)-P))
+ymax = max(abs(P_Vinet(V)-P)) if max(abs(P_Vinet(V)-P)) > max(dP) else max(dP)
+ax2.set_ylim(-3*ymax,3*ymax)
+ax2.set_xlim(min(V) - dv,max(V) + dv)
+ax.legend()
+ax2.legend(loc='best')
+ax3.legend(loc='best')
+
+print ( "F-f fit:      V0[A^3]= %9.4f            K0[GPa]= %9.4f %7.4f  K0p= %7.4f %7.4f %s"  % ( V0    , K0, K0E, K0p, K0pE, "" ) )
+
+
+
 ### REPORT ###
-predictors = ['BM',  'Vinet',  'loglog' ]
+#predictors = ['BM',  'Vinet',  'loglog' ]
+predictors = ['BM',  'Vinet',  'loglog', 'F-f']
 P_fit = { 'BM': P_BM, 'Vinet': P_Vinet, 'loglog': P_loglogfit}
 Nparams = { 'BM': len(popt_BM),  'Vinet': len(popt_Vinet), 'loglog': 4 }
+P_fit['F-f'] = P_Ff
+Nparams['F-f'] = 2
 residuals = { predictor : P_fit[predictor](V)-P for predictor in predictors }
 sigma     = { predictor : std(residuals[predictor]) for predictor in predictors }
 RMSE      = { predictor : sqrt(mean(residuals[predictor]**2)) for predictor in predictors }
@@ -494,34 +603,40 @@ for p in sorted_predictors:
 
 
 
-
 #----------------------------------------------#
 #  PRINT INTERPOLATED TABLE AND                #
 #  plot the fbv, spline BM & Vinet curves      #
 #----------------------------------------------#
 if print_table:
  print("\n# PRINTING TABLE OF INTERPOLATED VOLUMES")
- spl_V_BM    = InterpolatedUnivariateSpline(    P_BM(vs[::-1]), vs[::-1])  # V(P)
- spl_V_Vinet = InterpolatedUnivariateSpline( P_Vinet(vs[::-1]), vs[::-1])  # V(P)
+ vs = linspace(min(V), max(V), 500)
+ each = 1 if P_BM(vs[0])<P_BM(vs[-1]) else -1
+ spl_V_BM    = InterpolatedUnivariateSpline(    P_BM(vs[::each]), vs[::each])  # V(P)
+ spl_V_Vinet = InterpolatedUnivariateSpline( P_Vinet(vs[::each]), vs[::each])  # V(P)
  #p_list = arange(10,500,10)
  #p_list = arange(1e-10,201,1)
- p_list = linspace(1e-10,max(ps),40)
- print("# Plotting the predicted volumes for 20 pressures equally spread on the interval:")
+ Np = 40
+ p_list = linspace(1e-10,max(ps), Np)
+ print("# Plotting the predicted volumes for",Np,"pressures equally spread on the interval:")
  ax.plot(spl_V_BM(p_list), p_list , 'o', mfc='None', mec='r', ms=8, mew=2, label=r'$V_{\rm BM}(P)$ inv')
  ax.plot(spl_V_Vinet(p_list), p_list , 's', mfc='None', mec='limegreen', ms=8, mew=2, label='Vinet $V(P)$ inv')
+ ax.legend()
  # Weighted fit by Burkhard fbv
- try:
+ if fbv_exists:
   vols_fbv = [  float(subprocess.check_output(fbv_path +' '+ filename + ' ' + str(colV+1) + ' ' + str(colP+1) + ' ' + str(colPE+1) + ' ' + str(p) + " | awk '/NewV/{print $NF}' ", shell=True ))  for p in p_list ]
   ax.plot(vols_fbv, p_list , '*', mfc='w', mec='purple', ms=12, mew=2,label='fbv')
   for j,p in enumerate(p_list):
    print ("P[GPa]=  %9.2f  V_BM[A^3]=  %9.4f  V_Vinet[A^3]=  %9.4f  V_loglog[A^3]=  %9.4f  V_fbv[A^3]=  %9.4f  (V_Vinet-V_BM)/V_Vinet[%%]= %7.4f" % (p, spl_V_BM(p), spl_V_Vinet(p), V_loglogfit(p), vols_fbv[j], (1-spl_V_BM(p)/spl_V_Vinet(p))*100 )  )
- except:
+ else:
   for j,p in enumerate(p_list):
    print ("P[GPa]=  %9.2f  V_BM[A^3]=  %9.4f  V_Vinet[A^3]=  %9.4f  V_loglog[A^3]=  %9.4f  (V_Vinet-V_BM)/V_Vinet[%%]= %7.4f" % (p, spl_V_BM(p), spl_V_Vinet(p), V_loglogfit(p), (1-spl_V_BM(p)/spl_V_Vinet(p))*100 )  )
 
-ax.legend()
 
 
+#----------------------------------------------#
+#  P_TARGET                                    #
+#  Providing V(P_Target) for each fit          #
+#----------------------------------------------#
 if PTarget>0:
  print("\nVolume at P_Target")
  p = PTarget
@@ -557,7 +672,7 @@ if PTarget>0:
   PBest = min(P, key=lambda p: abs(p-PTarget))
   print("PBest[GPa]= %9.1f"% (PBest) )
   dGInt, _ = quad( spl_V_BM , P1, PTarget)
-  print("Integral from P0[GPa]= %9.1f to P_Target[GPa]= %9.1f:  dGInt= %14.12f " % (P1,PTarget, dGInt*0.00022937123) )
+  print("Integral from P1[GPa]= %6.2f to P_Target[GPa]= %6.2f:  ∆G[eV]= %14.12f " % (P1,PTarget, dGInt*GPaA3_to_eV) )
  
 
  
@@ -593,7 +708,7 @@ if deleting_points_test:   #  --test
 
 
   #------------------------#
-  #    BIRCH MURNAGHAN     #
+  #*** BIRCH MURNAGHAN ****#
   #------------------------#
   ## Only K0,K0p as parameters. Forcing P(V0)=P0 = min(P)
   if   BM_deg==3:
@@ -614,7 +729,7 @@ if deleting_points_test:   #  --test
   #if k==1: ax2.errorbar(V_org, (P_BM(V_org)-P_org), 0*dP_org, color='red', marker='s', ms=12, capsize=10, mfc='w', mec='red', mew=2,alpha=0.5, label=r'$P_{\rm BM}-P$')
 
   #------------------------#
-  #         VINET          #
+  #*******  VINET  ********#
   #------------------------#
   initial_guess = (k0, k0p)  # Initial guess of Vinet parameters K0, K0p
   p_Vinet  = lambda v,K0,K0p: min(P) + VinetPressure(v, max(V),K0,K0p)
@@ -623,7 +738,7 @@ if deleting_points_test:   #  --test
   #print ("Vinet V0,K0, K0p: ", max(V), popt_Vinet)
 
   #------------------------#
-  #       LOG-LOG          #
+  #*****  LOG-LOG  ********#
   #------------------------#
   # FITTING A POLYNOMIAL IN LOG-LOG SPACE
   P_residual = 10.0 + abs(min(P))        # Shift P by 10 upwards to prevent P=0.0 generating problems
@@ -664,7 +779,6 @@ if deleting_points_test:   #  --test
 
   vlist =  { 'BM': V_BM_err, 'Vinet': V_Vinet_err, 'loglog': V_loglogfit_err}
   if fbv_exists:  vlist =  { 'BM': V_BM_err, 'Vinet': V_Vinet_err, 'loglog': V_loglogfit_err, 'fbv': V_fbv_err }
-  ax.legend()
 
   sorted_vlist = sorted(vlist.items(), key=lambda item: abs(item[1]))
   #print ("Best:", sorted_vlist[0][0], "Worst:", sorted_vlist[-1][0])
@@ -713,7 +827,7 @@ if deleting_points_test:   #  --test
   ##print ("Vinet V0,K0, K0p: ", popt_Vinet)
 
   #------------------------#
-  #    BIRCH MURNAGHAN     #
+  #*** BIRCH MURNAGHAN ****#
   #------------------------#
   ## Only K0,K0p as parameters. Forcing P(V0)=P0 = min(P)
   if   BM_deg==3:
@@ -728,7 +842,7 @@ if deleting_points_test:   #  --test
 
 
   #------------------------#
-  #         VINET          #
+  #*******  VINET  ********#
   #------------------------#
   initial_guess = (k0, k0p)  # Initial guess of Vinet parameters K0, K0p
   p_Vinet  = lambda v,K0,K0p: min(P) + VinetPressure(v, max(V),K0,K0p)
@@ -738,7 +852,7 @@ if deleting_points_test:   #  --test
 
 
   #------------------------#
-  #       LOG-LOG          #
+  #*****  LOG-LOG  ********#
   #------------------------#
   # FITTING A POLYNOMIAL IN LOG-LOG SPACE
   #V_loglog= 0.0
@@ -805,12 +919,6 @@ if deleting_points_test:   #  --test
 
 
 
-ax2.set_xlabel("Volume ($\AA^3$)")
-#ax2.set_ylim(2*min(P_Vinet(V)-P),2.1*max(P_Vinet(V)-P))
-ymax = max(abs(P_Vinet(V)-P)) if max(abs(P_Vinet(V)-P)) > max(dP) else max(dP)
-ax2.set_ylim(-3*ymax,3*ymax)
-ax2.set_xlim(min(V) - dv,max(V) + dv)
-ax2.legend(loc='best')
 
 #geometry = plt.get_current_fig_manager().window.geometry()
 ## Extract xmin, xmax, ymin, ymax from the QRect object
