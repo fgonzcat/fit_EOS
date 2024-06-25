@@ -203,8 +203,8 @@ GPaA3_to_eV=0.0062415091
 Ha_to_eV = 27.211386
 Ha_to_meV = Ha_to_eV * 1000
 kB = 0.000086173303372 # eV/K
-fig_size = [700/72.27 ,720/72.27]
-#fig_size = [700/72.27 ,520/72.27]
+fig_size = [700/72.27 ,520/72.27]
+#fig_size = [700/72.27 ,720/72.27]
 #fig_size = [350/72.27 ,250/72.27]
 params = {'axes.labelsize': 22, 'legend.fontsize': 16,
           'xtick.labelsize': 22, 'ytick.labelsize': 22,
@@ -444,7 +444,7 @@ else:
 #              P(V) and fits                   #
 #----------------------------------------------#
 if Merge_Figures:
- fig_size = [700/72.27 ,800/72.27]
+ fig_size = [700/72.27 ,590/72.27]
  rcParams.update({ 'figure.figsize': fig_size, 'figure.subplot.bottom': 0.090 } )
 
  fig = figure('Pressure vs. Volume')   
@@ -984,8 +984,7 @@ if deleting_points_test:   #  --test
 #fig.canvas.manager.window.setGeometry(100, 100, xmax, ymax)  # Set position for fig
 #fig2.canvas.manager.window.setGeometry(100+xmax+50, 100, xmax, ymax)  # Set position for fig2
 
-savefig('one.png')
-
+#savefig('Figure2.png')
 figure('Pressure vs. Volume')  # Just bring it to the front
-savefig('two.png')
+#savefig('Figure1.png')
 if show_plots: show()
