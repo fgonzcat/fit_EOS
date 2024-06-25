@@ -83,6 +83,11 @@ H2O011	72O+144H	N=	216	V[A^3]=	391.617966	rho[g/cc]=	5.5	T[K]=	7000	P[GPa]=	823.
 ```bash
 ./fit_EOS.py EOS_H2O_liq_7000K.dat 6 12 13
 ```
+>[!IMPORTANT]
+>If you have error bars in the measured volumes, you can pass them as an additional column (say, column 7) after the volume column. These error bars will be considered for the $F-f$ fit.
+>```bash
+>./fit_EOS.py EOS_H2O_liq_7000K.dat 6 7 12 13
+>```
 
 ```python
 **** FITTING EOS ****
