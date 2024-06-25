@@ -203,7 +203,8 @@ GPaA3_to_eV=0.0062415091
 Ha_to_eV = 27.211386
 Ha_to_meV = Ha_to_eV * 1000
 kB = 0.000086173303372 # eV/K
-fig_size = [700/72.27 ,520/72.27]
+fig_size = [700/72.27 ,720/72.27]
+#fig_size = [700/72.27 ,520/72.27]
 #fig_size = [350/72.27 ,250/72.27]
 params = {'axes.labelsize': 22, 'legend.fontsize': 16,
           'xtick.labelsize': 22, 'ytick.labelsize': 22,
@@ -443,7 +444,7 @@ else:
 #              P(V) and fits                   #
 #----------------------------------------------#
 if Merge_Figures:
- fig_size = [700/72.27 ,590/72.27]
+ fig_size = [700/72.27 ,800/72.27]
  rcParams.update({ 'figure.figsize': fig_size, 'figure.subplot.bottom': 0.090 } )
 
  fig = figure('Pressure vs. Volume')   
@@ -604,7 +605,7 @@ P = P_org
 dP = dP_org
 ax.plot(vs, P_Ff(vs), '-', c='orange',dashes=[5,2,1,1], lw=2, label='$P(V)$ $F$-$f$ fit')
 #ax2.errorbar(V, ( F_vs_f_fit(f)*(3*f * (1+2*f)**(5.0/2)) -P), 0*dP, ls='', color='k', marker='D', ms= 6, capsize=10, mfc='orange', mec='k', mew=1, label='$P(V)$ $F$-$f$ fit')
-ax2.plot(V, (P_Ff(V) -P), ls='-', color='orange', marker='D', ms=12, mfc='orange', mec='k', mew=1, zorder=2, label='$P_{F-f}(V)$')
+ax2.plot(V, (P_Ff(V) -P), ls='-', color='orange', marker='D', ms= 7, mfc='orange', mec='k', mew=1, zorder=10, label='$P_{F-f}(V)$')
 print ( "F-f fit:      V0[A^3]= %9.4f            K0[GPa]= %9.4f %7.4f  K0p= %7.4f %7.4f %s"  % ( V0    , K0, K0E, K0p, K0pE, "" ) )
 
 ax2.set_xlabel("Volume ($\AA^3$)")
@@ -662,6 +663,7 @@ if print_table:
  vs = linspace(min(V), max(V), 500)
  each = 1 if P_BM(vs[0])<P_BM(vs[-1]) else -1
  spl_V_BM    = InterpolatedUnivariateSpline(    P_BM(vs[::each]), vs[::each])  # V(P)
+ spl_V_Ff    = InterpolatedUnivariateSpline(    P_Ff(vs[::each]), vs[::each])  # V(P)
  spl_V_Vinet = InterpolatedUnivariateSpline( P_Vinet(vs[::each]), vs[::each])  # V(P)
  #p_list = arange(10,500,10)
  #p_list = arange(1e-10,201,1)
@@ -679,7 +681,7 @@ if print_table:
    print ("P[GPa]=  %9.2f  V_BM[A^3]=  %9.4f  V_Vinet[A^3]=  %9.4f  V_loglog[A^3]=  %9.4f  V_fbv[A^3]=  %9.4f  (V_Vinet-V_BM)/V_Vinet[%%]= %7.4f" % (p, spl_V_BM(p), spl_V_Vinet(p), V_loglogfit(p), vols_fbv[j], (1-spl_V_BM(p)/spl_V_Vinet(p))*100 )  )
  else:
   for j,p in enumerate(p_list):
-   print ("P[GPa]=  %9.2f  V_BM[A^3]=  %9.4f  V_Vinet[A^3]=  %9.4f  V_loglog[A^3]=  %9.4f  (V_Vinet-V_BM)/V_Vinet[%%]= %7.4f" % (p, spl_V_BM(p), spl_V_Vinet(p), V_loglogfit(p), (1-spl_V_BM(p)/spl_V_Vinet(p))*100 )  )
+   print ("P[GPa]=  %9.2f  V_BM[A^3]=  %9.4f  V_Ff[A^3]=  %9.4f  V_Vinet[A^3]=  %9.4f  V_loglog[A^3]=  %9.4f  (V_Vinet-V_BM)/V_Vinet[%%]= %7.4f" % (p, spl_V_BM(p), spl_V_Ff(p), spl_V_Vinet(p), V_loglogfit(p), (1-spl_V_BM(p)/spl_V_Vinet(p))*100 )  )
 
 
 
@@ -982,7 +984,8 @@ if deleting_points_test:   #  --test
 #fig.canvas.manager.window.setGeometry(100, 100, xmax, ymax)  # Set position for fig
 #fig2.canvas.manager.window.setGeometry(100+xmax+50, 100, xmax, ymax)  # Set position for fig2
 
-#savefig('diff.png')
+savefig('one.png')
 
 figure('Pressure vs. Volume')  # Just bring it to the front
+savefig('two.png')
 if show_plots: show()

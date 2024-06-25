@@ -1,7 +1,7 @@
 # fit_EOS
 This is code that allows to fit [Birch Murnaghan](https://en.wikipedia.org/wiki/Birch–Murnaghan_equation_of_state), [Vinet](https://en.wikipedia.org/wiki/Rose–Vinet_equation_of_state), and polynomial log-log functional forms to Pressure-Volume ($P$-$V$) data provided by the user. The code uses a the ```curve_fit``` from ```scipy.optimize``` in combination with ```InterpolatedUnivariateSpline``` from ```scipy.interpolate```. The code supports error bars $\delta P_i$ in the pressure $P_i$, which changes the weights in the fitting to $w_i=1/\delta P_i$.  The output provides the fitting parameters for each of the functional forms with their respective errors from the covariance matrix. Different indicators are provided to determine which fit worked better, including RMSE, standard deviation of the residuals, $R^2$, and $\chi^2$  (see below).
 
-## Fitting Equations of State using Vinet / Birch-Murnahan / log-log to P-V data
+## Fitting Equations of State using Vinet / Birch-Murnaghan / log-log to P-V data
 The Birch-Murnhagan EOS of 3rd order is given by
 
 $$    P (V)= \frac{3}{2} K_0 \left(\left(\frac{V_0}{V}\right)^{7/3} -         \left(\frac{V_0}{V}\right)^{5/3}\right)   \left(1 + \frac{3}{4}\left(K_0'-4\right)\left(\left(\frac{V_0}{V}\right)^{2/3}-1\right)\right)$$ 
@@ -232,3 +232,12 @@ WORST SCORES:  {'BM': 18, 'Vinet': 1, 'loglog': 1} out of 20
 Overall scores: {'BM': -17, 'Vinet': 2, 'loglog': 15}
 Best predictor two-points test: loglog
 ```
+
+
+## Merge plots and show the $F$ vs. $f$ plot
+We can merge the $P(V)$ plot with the plot of the residuals using the ```--merge-plots```  option. In addition, we can display the optional plot of $F$ vs. $f$ plot using the ```--show-F-plot```. A weighted linear interpolation of $F$-$f$ is equivalent to a third-order Birch-Murnaghan.  A positive slope of $F(f)$ means that $K_0'>4$.  
+<img src="https://github.com/fgonzcat/fit_EOS/blob/main/Merged_plots.png?raw=true" alt="Alt text" width="600">
+<img src="https://github.com/fgonzcat/fit_EOS/blob/main/F_vs_f_plot.png?raw=true" alt="Alt text" width="600">
+
+
+
