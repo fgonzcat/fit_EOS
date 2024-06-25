@@ -1,7 +1,9 @@
 #!/usr/bin/env python
 """
 -----------------------------------------------------------------------------------------------|
- FITTING EQUATIONS OF STATE USING VINET / BIRCH-MURNHAGAN 3RD-ORDER                            |
+ FITTING EQUATIONS OF STATE USING VINET / BIRCH-MURNHAGAN / F-f / LOG-LOG                      |
+Repository @ https://github.com/fgonzcat/fit_EOS.git                                           |
+                                                                                               |
 The Birch-Murnhagan EOS of 3rd order is given by                                               |
                                                                                                |
 $$    P (V)= \frac{3}{2} K_0 \left(\left(\frac{V_0}{V}\right)^{7/3} -                          |
@@ -69,6 +71,7 @@ P1 =    -1   # To calculate integral V(P)dP from P1 to PTarget
 print_table = False
 deleting_points_test = False
 show_plots = True 
+show_F_plot = False
 V0_as_param = False
 Merge_Figures=False
 fbv_path = os.path.expanduser("~/scripts/fbv")
@@ -106,6 +109,7 @@ if len(sys.argv) == 1:
  Usage: {0}   ... --PTarget 150   --> prints the volume at P_Target from each model and the integral  ∆G = int_P1^P_Target V(P) dP = G(P_Target) - G(P1)
  Usage: {0}   ... --P1      110   --> Changes P1 for the integral above to 110 GPa. 
  Usage: {0}   ... --merge-plots   --> Just one P(V) figure with two plots instead of separate figures
+ Usage: {0}   ... --show-F-plot   --> Show the F(f) plot to check how the fit performed in F-f space 
 
  No arguments assumes V[A^3]-col= 6, P[GPa]-col= 12,  P_error-col= 13
 
@@ -150,6 +154,10 @@ else:
   idx = sys.argv.index('--merge-plots')
   sys.argv.pop(idx)
   Merge_Figures = True
+ if '--show-F-plot' in sys.argv:
+  idx = sys.argv.index('--show-F-plot')
+  sys.argv.pop(idx)
+  show_F_plot   = True
  if '--BM2' in sys.argv:
   idx = sys.argv.index('--BM2')
   sys.argv.pop(idx)
@@ -289,6 +297,8 @@ except:
   dV = 0.0
  #dP = 3*dP
 
+minP=min(P)
+maxV=max(V)
 
 try:
  T0=int(T)
@@ -358,11 +368,11 @@ popt_BM, pcov_BM= curve_fit(p_BM, V, P, p0=initial_guess , sigma=dP, absolute_si
 Perr_BM = np.sqrt(np.diag(pcov_BM))
 print ("Birch-Murnaghan of degree",BM_deg,"\n")
 if   BM_deg==2:
- print ( "BM fit:       V0[A^3]= %9.4f            K0[GPa]= %9.4f %7.4f  %s"  % ( max(V), popt_BM[0], Perr_BM[0], "                            # Forcing P(V0)=P0 = min(P)" ) )
+ print ( "BM fit:       V0[A^3]= %9.4f            K0[GPa]= %9.4f %7.4f  %s"  % ( maxV, popt_BM[0], Perr_BM[0], "                            # Forcing P(V0)=P0 = min(P)" ) )
 elif BM_deg==3:
- print ( "BM fit:       V0[A^3]= %9.4f            K0[GPa]= %9.4f %7.4f  K0p= %7.4f %7.4f %s"  % ( max(V), popt_BM[0], Perr_BM[0], popt_BM[1], Perr_BM[1], "  # Forcing P(V0)=P0 = min(P)" ) )
+ print ( "BM fit:       V0[A^3]= %9.4f            K0[GPa]= %9.4f %7.4f  K0p= %7.4f %7.4f %s"  % ( maxV, popt_BM[0], Perr_BM[0], popt_BM[1], Perr_BM[1], "  # Forcing P(V0)=P0 = min(P)" ) )
 elif BM_deg==4:
- print ( "BM fit:       V0[A^3]= %9.4f            K0[GPa]= %9.4f %7.4f  K0p= %7.4f %7.4f  K0pp[1/GPa]= %7.4f %4.4f%s"  % ( max(V), popt_BM[0], Perr_BM[0], popt_BM[1], Perr_BM[1],popt_BM[2], Perr_BM[2], "  # Forcing P(V0)=P0 = min(P)" ) )
+ print ( "BM fit:       V0[A^3]= %9.4f            K0[GPa]= %9.4f %7.4f  K0p= %7.4f %7.4f  K0pp[1/GPa]= %7.4f %4.4f%s"  % ( maxV, popt_BM[0], Perr_BM[0], popt_BM[1], Perr_BM[1],popt_BM[2], Perr_BM[2], "  # Forcing P(V0)=P0 = min(P)" ) )
 #print("COVARIANT BM:",pcov_BM)
 
 
@@ -372,9 +382,9 @@ elif BM_deg==4:
 k0   = -V[0]*(P[-1]-P[0])/(V[-1]-V[0])  #max(P)/10
 k0p  = 4
 k0pp = -(9*k0p*k0p -63*k0p + 143)/(9*k0)
-if   BM_deg==2: initial_guess = (max(V),k0)            # Initial guess of parameters V0, K0
-elif BM_deg==3: initial_guess = (max(V),k0, k0p)       # Initial guess of parameters V0, K0, K0p
-elif BM_deg==4: initial_guess = (max(V),k0, k0p,k0pp)  # Initial guess of parameters V0, K0, K0p, K0pp
+if   BM_deg==2: initial_guess = (maxV,k0)            # Initial guess of parameters V0, K0
+elif BM_deg==3: initial_guess = (maxV,k0, k0p)       # Initial guess of parameters V0, K0, K0p
+elif BM_deg==4: initial_guess = (maxV,k0, k0p,k0pp)  # Initial guess of parameters V0, K0, K0p, K0pp
 
 BM_bounds = [2*max(V),2*k0]
 lower_BM_bounds = [0,0]
@@ -403,12 +413,12 @@ elif BM_deg==4:
 #         VINET          #
 #------------------------#
 initial_guess = (k0, k0p)  # Initial guess of Vinet parameters K0, K0p
-p_Vinet  = lambda v,K0,K0p: min(P) + VinetPressure(v, max(V),K0,K0p)
+p_Vinet  = lambda v,K0,K0p: min(P) + VinetPressure(v, maxV,K0,K0p)
 popt_Vinet, pcov_Vinet = curve_fit(p_Vinet, V, P, p0=initial_guess, sigma=dP, absolute_sigma=True) #, maxfev=1000000)
 Perr_Vinet = np.sqrt(np.diag(pcov_Vinet))
-print ( "Vinet fit:    V0[A^3]= %9.4f            K0[GPa]= %9.4f %7.4f  K0p= %7.4f %7.4f %s"  % ( max(V), popt_Vinet[0], Perr_Vinet[0], popt_Vinet[1], Perr_Vinet[1], "  # Forcing P(V0)=P0 = min(P)" ) )
+print ( "Vinet fit:    V0[A^3]= %9.4f            K0[GPa]= %9.4f %7.4f  K0p= %7.4f %7.4f %s"  % ( maxV, popt_Vinet[0], Perr_Vinet[0], popt_Vinet[1], Perr_Vinet[1], "  # Forcing P(V0)=P0 = min(P)" ) )
 
-initial_guess = (max(V),k0, k0p)  # Initial guess of parameters K0, K0p
+initial_guess = (maxV,k0, k0p)  # Initial guess of parameters K0, K0p
 try:
  npopt_Vinet, npcov_Vinet = curve_fit(VinetPressure, V, P, p0=initial_guess, sigma=dP, absolute_sigma=True, bounds=(0,[3*max(V),2*k0,100]) ) #, maxfev=1000000 )
 except:
@@ -422,21 +432,21 @@ if V0_as_param:
  P_BM = lambda v:  P_V_BM(v, *npopt_BM)
  P_Vinet = lambda v: VinetPressure(v, *npopt_Vinet)
 else:
- P_BM = lambda v: min(P) + P_V_BM(v, max(V), *popt_BM)
+ P_BM = lambda v: minP + P_V_BM(v, maxV, *popt_BM)
  P_Vinet = lambda v: p_Vinet(v, *popt_Vinet)
 
 
 
 
-#---------------------------------#
-#       PLOTTING FIGURE 1         #
-#          P(V) and fits          #
-#---------------------------------#
+#----------------------------------------------#
+#            PLOTTING FIGURE 1                 #
+#              P(V) and fits                   #
+#----------------------------------------------#
 if Merge_Figures:
- fig_size = [700/72.27 ,720/72.27]
+ fig_size = [700/72.27 ,590/72.27]
  rcParams.update({ 'figure.figsize': fig_size, 'figure.subplot.bottom': 0.090 } )
 
- fig = figure('Pressure vs Volume')   
+ fig = figure('Pressure vs. Volume')   
  gs = gridspec.GridSpec(2, 1)
  ax = subplot(gs[0:1,0])
  ax2 = subplot(gs[1,0], sharex= ax)
@@ -461,7 +471,7 @@ vs = linspace(min(V)-2*dv, max(V)+dv, 500)
 ps = P_BM(vs) #[P_BM(v) for v in vs]
 ax.plot(vs, ps,'r-', lw=4,label='$P(V)$ BM fit')
 ax.plot(vs, P_Vinet(vs),'--', c='limegreen',lw=3,label='$P(V)$ Vinet fit')
-ax.plot(vs, P_spline(vs),'--',dashes=[10,3], c='darkblue', lw=2, label='$P(V)$ spline fit')
+ax.plot(vs, P_spline(vs),'--',dashes=[8,2], c='m', lw=2, label='$P(V)$ spline fit')
 ax.plot(vs, P_loglogfit(vs),'k',dashes=[5,1,1,1],lw=2,label=r'Log-Log polyfit '+'\n'+r'($\ln V=a + b*\ln P + c*\ln^2 P + d*\ln^3 P$)')
 if fbv_exists:
  p_list =linspace(1.1*min(P),0.9*max(P),100)
@@ -483,14 +493,13 @@ ax.set_ylim(0.9*min(P),1.5*max(P))
 # Difference between the fit and the points    #
 #----------------------------------------------#
 ps=np.array(ps)
-plot(vs,ps-ps,'k--' ,label='$P$ Data')
+ax2.plot(vs,ps-ps,'k--' ,label='$P$ Data')
 
 ax2.errorbar(V, (P_BM(V)-P), 0*dP, color='red', marker='s', ms=12, capsize=10, mfc='pink', mec='red', mew=2, label=r'$P_{\rm BM}-P$')
-ax2.errorbar(V, (P_Vinet(V)-P), 0*dP, color='limegreen', marker='v', ms=10, capsize=10, mfc='None', mec='limegreen', mew=2,label=r'$P_{\rm Vinet}-P$')
+ax2.errorbar(V, (P_Vinet(V)-P), 0*dP, color='limegreen', marker='v', ms=10, capsize=10, mfc='w', mec='limegreen', mew=2,label=r'$P_{\rm Vinet}-P$')
 ax2.errorbar(V, (P_loglogfit(V)-P), 0*dP, color='k', lw=1, marker='d', ms=12, capsize=6, mfc='yellow', mec='k', mew=2, label=r'$P_{\rm log-log}-P$')
-ax2.errorbar(V, P-P, dP, marker='o', ls='', c='blue', ms=14, capsize=10, mfc='lightblue', mec='blue', mew=2, lw=2, zorder=-1, label=r'$P(V)$ ' + filename)
+ax2.errorbar(V, P-P, dP, marker='o', ls='', c='blue', ms=14, capsize=10, mfc='lightblue', mec='blue', mew=2, lw=2, zorder=-1, label=r'$P(V)$ ')
 
-ax2.set_ylabel(r"$P_{\rm fit}-P_{\rm data}$ (GPa)")
 
 # COMMENT THE BLOCK ABOVE AN UNCOMMENT THE ONE BELOW TO PLOT IN TERMS OF PV
 #ax2.errorbar(V, (fPV(V)-P)*V*GPaA3_to_eV, dP*V*GPaA3_to_eV, color='b', marker='s', c='b',ms=10, capsize=10, mfc='None', mec='b', mew=2,label=r'$P-P_{\rm BM}$')
@@ -500,19 +509,43 @@ ax2.set_ylabel(r"$P_{\rm fit}-P_{\rm data}$ (GPa)")
 #ax2.set_ylabel("$PV$ (eV)")
 
 
+
 #----------------------------------------------#
 #            PLOTTING FIGURE 3                 #
 # Raymond Jeanloz's F-vs-f                     #
+# see http://doi.org/10.1029/GL008i012p01219   #
+# see http://doi.org/10.1063/1.333139          #
 #----------------------------------------------#
-rcParams.update(params)
-fig3 = figure(3)
-ax3 = subplot(111)
-ax3.set_xlabel(r'$f= \frac{1}{2}[ (V_0/V)^{2/3} -1 ]$')
-ax3.set_ylabel(r'$F= P/[ 3f \; (1+2f)^{5/2}  ] $')
+V_org = array(V)
+dV_org = 0.0
+if not isinstance(dV,float): dV_org = array(dV)
+P_org = array(P)
+dP_org = array(dP)
 
-V0 = 1.0 #1.5*max(V) 
+
+V0 = 1.0
+P_shift = 0.0
+if min(V)>1:
+ #**** THIS IS JUST A TRICK  *****#
+ #   ---- Re-scale x-axis, shift y-axis ----
+ # When volumes are not normalized (i.e., V is not equal to V/V0),
+ # I will normalize the volumes for F-f fit purposes using V0 = max(V).
+ # The problem with this normalization is that when V=V0, then f(V0)=0 and F(V0) is undefined (division by zero).
+ #  - I solve this by ignoring F[0] and considering only the rest of the data, V=V[1:], P=P[1:].
+ # In addition, I usually fit T>0 isotherms, so P(V0) = min(P) > 0. Thus, the expansion
+ # P=3K0*f(1+2f)^(5/2)(1-2xi*f+4*zeta*f^2+...)  and F=K0*(1-2xi*f+4*zeta*f^2+...)
+ # does not make much sense. But it does if I treat P as thermal pressure, P-P[0]=Pth.
+ #  - Therefore, I shift down P by P_shift=P[0], so Pth=P-P[0] looks like a zero-Kelvin isotherm
+ #    that satisfies Pth(V0) = 0 by definition, so I force the fit to satisfy P(V0)= min(P) = P[0] 
+ #    and the F-f fit is done over Pth[1:]
+ V0 = 1.0*max(V_org) 
+ V=V_org[1:]
+ if not isinstance(dV,float): dV = dV_org[1:]
+ P_shift = P_org[0]
+ P=P_org[1:] - P_shift    # ~Thermal P
+ dP=dP_org[1:]
 f = 0.5*( (V0/V)**(2.0/3) -1 )
-F = P / ( 3*f * (1+2*f)**(5.0/2)  )
+F = P / ( 3*f * (1+2*f)**(5.0/2)  ) # To make it match
 #dF = abs(F/P)*dP
 
 dV0=0   # No error in the measurement of V0, but here for consistency
@@ -521,60 +554,77 @@ dfdV = -(V0/V)**(2.0/3)/(3*V)
 df2 = (dfdV*dV)**2 + (dfdV0*dV0)**2
 dFdf = P*(F/P)**2 * (  3*(1+2*f)**(5.0/2)  +  15*f*(1+2*f)**(3.0/2)  )
 dF = sqrt( (F*dP/P)**2 + (dFdf)**2*df2  )
-ax3.errorbar(f, F, dF , marker='o', ls='-',c='b',ms=10, capsize=10, mfc='lightblue', mec='b', mew=2, zorder=5,label=r'$F(f)$')
 
-coeffs, cov_matrix = np.polyfit(f, F,1, w=1/dF, cov=True)
+
+F_f_deg = 2 if BM_deg ==4 else 1
+coeffs, cov_matrix = np.polyfit(f, F, F_f_deg, w=1/dF, cov=True)
 errors = sqrt(diag(cov_matrix))
 K0 = coeffs[-1]  # The last one in polyfit is the x**0 coefficient [p(x) = p[0] * x**deg + ... + p[deg]]
 K0E = errors[-1]
-K0p = 4-2*coeffs[-2]/coeffs[-1]/3    # Because a1 = -2 K0 xi = - 2 K0 (3/4)(K0'-4) in F=  a0 + a1 f, with a0= K0
+#xi = (3/4)*(K0p-4)                              --> K0p = xi/(3/4) + 4 = [a1/(-2K0)]/(3/4) + 4
+#zeta = (3/8)*[K0 K0pp + K0p*(K0p-7) + 143/9]    --> K0pp= [ zeta/(3/8) - 143/9 - K0p*(K0p-7) ]/K0 = [ [a2/(4K0)]/(3/8) - 143/9 - K0p*(K0p-7) ]/K0
+K0p = coeffs[-2]/(-2*K0*3/4.0 ) + 4               # Because a1 = -2 K0 xi = (-2 K0) (3/4)(K0'-4) in F=  a0 + a1 f, with a0= K0
 K0pE= abs(K0p-4)*sqrt( (errors[-2]/coeffs[-2])**2 + (errors[-1]/coeffs[-1])**2 ) 
 F_vs_f_fit = lambda x: np.poly1d(coeffs)(x) 
 ff = linspace(min(f), max(f))
-ax3.plot( ff, F_vs_f_fit(ff), 'r--' )
-
 
 def P_Ff(v):
  f = 0.5*( (V0/v)**(2.0/3) -1 )
- pp= F_vs_f_fit(f) * ( 3*f * (1+2*f)**(5.0/2)  )
+ pp= F_vs_f_fit(f) * ( 3*f * (1+2*f)**(5.0/2)  ) + P_shift
  return pp
 
-#PP_Raymond = F_vs_f_fit(ff) * ( 3*ff * (1+2*ff)**(5.0/2)  )
-#vv_Raymond = 1/(2*ff + 1)**(3.0/2) * V0
-vv_Raymond = vs
-PP_Raymond = P_Ff(vs)
-ax.plot(vv_Raymond, PP_Raymond, '-', c='orange',dashes=[5,2,1,1], lw=2, label='$P(V)$ $F$-$f$ fit')
-ax2.errorbar(V, ( F_vs_f_fit(f)*(3*f * (1+2*f)**(5.0/2)) -P), 0*dP, color='k', marker='D', ms= 8, capsize=10, mfc='orange', mec='k', mew=1, label='$P(V)$ $F$-$f$ fit')
+if show_F_plot:
+ #rcParams.update(params)
+ fig3 = figure(3)
+ ax3 = subplot(211)
+ ax3.set_xlabel(r'$f= \frac{1}{2}[ (V_0/V)^{2/3} -1 ]$')
+ ax3.set_ylabel(r'$F= P/[ 3f \; (1+2f)^{5/2}  ] $')
+ ax3.plot( ff, F_vs_f_fit(ff), 'r--' , label='Weighted fit ($w_i=1/\delta F_i$)')
+ ax3.errorbar(f, F, dF , marker='o', ls='-',c='b',ms=10, capsize=10, mfc='lightblue', mec='b', mew=2, zorder=5,label=r'$F(f)$')
+ ax3.legend(loc='best')
+
+ ax4 = subplot(212)
+ dfdV_org = -(V0/V_org)**(2.0/3)/(3*V_org)
+ df2_org = (dfdV_org*dV_org)**2 + (dfdV0*dV0)**2
+ ax4.errorbar(1-V_org/V0, P_org, yerr=dP_org, xerr=abs(1/dfdV_org)*sqrt(df2_org), marker='o', ls='',c='b',ms= 8, capsize= 6, mfc='lightblue', mec='b', mew=2, zorder=5,label=r'$P(V)$')
+ #ax4.plot(1-vs/V0, P_BM(vs), 'k-', label='$P(V)$ BM fit')
+ ax4.plot(1-vs/V0, P_Ff(vs), 'm-', dashes=[5,1,1,1], lw=2, label='$P_{F-f}(V)$ fit')
+ ax4.plot(1-vs/V0, 0*vs, 'k--')
+ ax4.legend(loc='best')
+ ax4.set_xlabel(r'$1-V/V_0$')
+ ax4.set_ylabel(r'Pressure (GPa)')
+ subplots_adjust(hspace=0.3)
+ ##ax3.set_ylim(0,440)
+ ##ax3.set_xlim(0,max(1-vs/V0))
+ ##ax3.set_ylim(0,1.1*max(P))
 
 
-#f = 0.5*( (V0/vs)**(2.0/3) -1 )
-#F = P_BM(vs) / ( 3*f * (1+2*f)**(5.0/2)  )
-#ax3.plot(f, F, 'b--')
-
-
-#ax3.errorbar(1-V/V0, P, yerr=dP, xerr=abs(1/dfdV)*sqrt(df2), marker='o', ls='',c='b',ms= 8, capsize= 6, mfc='lightblue', mec='b', mew=2, zorder=5,label=r'$P(V)$ at T='+str(T0))
-#ax3.plot(1-vs/V0, P_BM(vs), 'k-') 
-#ax3.plot(1-vv_Raymond/V0, PP_Raymond, 'm-', dashes=[5,2,1,1], lw=2)
-#ax3.set_ylim(0,440)
+V = V_org
+P = P_org
+dP = dP_org
+ax.plot(vs, P_Ff(vs), '-', c='orange',dashes=[5,2,1,1], lw=2, label='$P(V)$ $F$-$f$ fit')
+#ax2.errorbar(V, ( F_vs_f_fit(f)*(3*f * (1+2*f)**(5.0/2)) -P), 0*dP, ls='', color='k', marker='D', ms= 6, capsize=10, mfc='orange', mec='k', mew=1, label='$P(V)$ $F$-$f$ fit')
+ax2.plot(V, (P_Ff(V) -P), ls='-', color='orange', marker='D', ms=12, mfc='orange', mec='k', mew=1, zorder=2, label='$P_{F-f}(V)$')
+print ( "F-f fit:      V0[A^3]= %9.4f            K0[GPa]= %9.4f %7.4f  K0p= %7.4f %7.4f %s"  % ( V0    , K0, K0E, K0p, K0pE, "" ) )
 
 ax2.set_xlabel("Volume ($\AA^3$)")
+ax2.set_ylabel(r"$P_{\rm fit}-P_{\rm data}$ (GPa)")
 #ax2.set_ylim(2*min(P_Vinet(V)-P),2.1*max(P_Vinet(V)-P))
-ymax = max(abs(P_Vinet(V)-P)) if max(abs(P_Vinet(V)-P)) > max(dP) else max(dP)
+ymax = max(abs(P_BM(V)-P)) if max(abs(P_BM(V)-P)) > max(dP) else max(dP)
 ax2.set_ylim(-3*ymax,3*ymax)
 ax2.set_xlim(min(V) - dv,max(V) + dv)
 ax.legend()
-ax2.legend(loc='best')
-ax3.legend(loc='best')
+ax2.legend(loc=1)
 
-print ( "F-f fit:      V0[A^3]= %9.4f            K0[GPa]= %9.4f %7.4f  K0p= %7.4f %7.4f %s"  % ( V0    , K0, K0E, K0p, K0pE, "" ) )
 
 
 
 ### REPORT ###
-#predictors = ['BM',  'Vinet',  'loglog' ]
-predictors = ['BM',  'Vinet',  'loglog', 'F-f']
+predictors = ['BM',  'Vinet',  'loglog' ]
 P_fit = { 'BM': P_BM, 'Vinet': P_Vinet, 'loglog': P_loglogfit}
 Nparams = { 'BM': len(popt_BM),  'Vinet': len(popt_Vinet), 'loglog': 4 }
+if len(dP)==4: Nparams['loglog'] = 3 # avoid dividing by 0
+predictors  += ['F-f']
 P_fit['F-f'] = P_Ff
 Nparams['F-f'] = 2
 residuals = { predictor : P_fit[predictor](V)-P for predictor in predictors }
@@ -592,7 +642,7 @@ chi_squared = {predictor:  sum( residuals[predictor]**2 / dP**2)/(len(dP)-Nparam
 # ## P-values using the chi-squared distribution
 # #degrees_of_freedom = len(predictors) - 1
 # #p_values = {predictor: chi2.sf(chi_squared[predictor], degrees_of_freedom) for predictor in predictors}
-sorted_predictors = sorted(predictors, key=lambda p: R2[p])
+sorted_predictors = sorted(predictors, key=lambda p: chi_squared[p])
 
 print("\nRoot Mean Square Error of each fit:")
 for p in sorted_predictors:
@@ -604,7 +654,7 @@ for p in sorted_predictors:
 
 
 #----------------------------------------------#
-#  PRINT INTERPOLATED TABLE AND                #
+#  PRINT & PLOT INTERPOLATED TABLE AND         #
 #  plot the fbv, spline BM & Vinet curves      #
 #----------------------------------------------#
 if print_table:
@@ -619,7 +669,7 @@ if print_table:
  p_list = linspace(1e-10,max(ps), Np)
  print("# Plotting the predicted volumes for",Np,"pressures equally spread on the interval:")
  ax.plot(spl_V_BM(p_list), p_list , 'o', mfc='None', mec='r', ms=8, mew=2, label=r'$V_{\rm BM}(P)$ inv')
- ax.plot(spl_V_Vinet(p_list), p_list , 's', mfc='None', mec='limegreen', ms=8, mew=2, label='Vinet $V(P)$ inv')
+ ax.plot(spl_V_Vinet(p_list), p_list , 's', mfc='None', mec='limegreen', ms=8, mew=2, label=r'$V_{\rm Vinet}(P)$ inv')
  ax.legend()
  # Weighted fit by Burkhard fbv
  if fbv_exists:
@@ -645,7 +695,9 @@ if PTarget>0:
  try:
   each = 1 if P_BM(vs)[0]<P_BM(vs)[1] else -1
   spl_V_BM    = InterpolatedUnivariateSpline(    P_BM(vs)[::each], vs[::each])  # V(P)
+  spl_V_Ff    = InterpolatedUnivariateSpline(    P_Ff(vs)[::each], vs[::each])  # V(P)
   V_BM = spl_V_BM(PTarget)
+  V_Ff = spl_V_Ff(PTarget)
  except:
   pass 
  try:
@@ -655,6 +707,7 @@ if PTarget>0:
  except:
   pass
  print ("P_Target[GPa]=  %9.2f  V_BM[A^3]=      %9.4f" % (PTarget, V_BM)    )
+ print ("P_Target[GPa]=  %9.2f  V_F-f[A^3]=     %9.4f" % (PTarget, V_Ff)    )
  print ("P_Target[GPa]=  %9.2f  V_Vinet[A^3]=   %9.4f" % (PTarget, V_Vinet) )
  print ("P_Target[GPa]=  %9.2f  V_loglog[A^3]=  %9.4f" % (PTarget, V_loglogfit(PTarget)) )
  print ("P_Target[GPa]=  %9.2f  V_spline[A^3]=  %9.4f" % (PTarget, V_spline(PTarget)) )
@@ -931,4 +984,5 @@ if deleting_points_test:   #  --test
 
 #savefig('diff.png')
 
+figure('Pressure vs. Volume')  # Just bring it to the front
 if show_plots: show()
