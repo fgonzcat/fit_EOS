@@ -239,10 +239,32 @@ Best predictor two-points test: loglog
 ```
 
 
-## Merge plots and show the $F$ vs. $f$ plot
-We can merge the $P(V)$ plot with the plot of the residuals using the ```--merge-plots```  option. In addition, we can display the optional plot of $F$ vs. $f$ plot using the ```--show-F-plot```. A weighted linear interpolation of $F$-$f$ is equivalent to a third-order Birch-Murnaghan.  A positive slope of $F(f)$ means that $K_0'>4$.  
+## Merge plots
+We can merge the $P(V)$ plot with the plot of the residuals using the ```--merge-plots```  option.   
 <img src="https://github.com/fgonzcat/fit_EOS/blob/main/Merged_plots.png?raw=true" alt="Alt text" width="600">
+
+## The $F$ vs. $f$ plot
+
+In addition, we can display the optional plot of $F$ vs. $f$ plot using the ```--show-F-plot```. A weighted linear interpolation of $F-f$ is equivalent to a third-order Birch-Murnaghan.  A positive slope of $F(f)$ means that $K_0'>4$:
+```bash
+./fit_EOS.py EOS_Au_sol_298K.dat 5 7 2 4  --merge-plots  --show-F-plot
+```
 <img src="https://github.com/fgonzcat/fit_EOS/blob/main/F_vs_f_plot.png?raw=true" alt="Alt text" width="600">
+
+### Output
+```python
+BM fit:       V0[A^3]=    0.9759            K0[GPa]=  186.8480  5.4645  K0p=  5.3998  0.3833   # Forcing P(V0)=P0 = min(P)
+BM fit:       V0[A^3]=    0.9901    0.0005  K0[GPa]=  255.3038  7.8136  K0p=  1.9907  0.2382   # V0 as param
+Vinet fit:    V0[A^3]=    0.9759            K0[GPa]=  186.6511  5.3937  K0p=  5.5409  0.3662   # Forcing P(V0)=P0 = min(P)
+Vinet fit:    V0[A^3]=    0.9894    0.0006  K0[GPa]=  266.7909  9.3964  K0p=  1.1654  0.3807   # V0 as param
+F-f fit:      V0[A^3]=    1.0000            K0[GPa]=  166.5037  9.1082  K0p=  2.5854  0.6648
+
+Root Mean Square Error of each fit:
+FIT: F-f        RMSE_P[GPa]=  1.367572  std(residuals)=  1.233342  R2=  0.99568453  chi^2=  33.16240413
+FIT: Vinet      RMSE_P[GPa]=  1.366368  std(residuals)=  1.207360  R2=  0.99569212  chi^2=  38.02242777
+FIT: BM         RMSE_P[GPa]=  1.380015  std(residuals)=  1.218643  R2=  0.99560564  chi^2=  38.13478882
+FIT: loglog     RMSE_P[GPa]=  1.044243  std(residuals)=  1.044211  R2=  0.99748388  chi^2=  140.47121731
+```
 
 
 
