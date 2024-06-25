@@ -1,8 +1,10 @@
 # fit_EOS
-This is code that allows to fit [Birch Murnaghan](https://en.wikipedia.org/wiki/Birch–Murnaghan_equation_of_state), [Vinet](https://en.wikipedia.org/wiki/Rose–Vinet_equation_of_state), and polynomial log-log functional forms to Pressure-Volume ($P$-$V$) data provided by the user. The code uses a the ```curve_fit``` from ```scipy.optimize``` in combination with ```InterpolatedUnivariateSpline``` from ```scipy.interpolate```. The code supports error bars $\delta P_i$ in the pressure $P_i$, which changes the weights in the fitting to $w_i=1/\delta P_i$.  The output provides the fitting parameters for each of the functional forms with their respective errors from the covariance matrix. Different indicators are provided to determine which fit worked better, including RMSE, standard deviation of the residuals, $R^2$, and $\chi^2$  (see below).
+This is code that allows to fit [Birch-Murnaghan](https://en.wikipedia.org/wiki/Birch–Murnaghan_equation_of_state), [Vinet](https://en.wikipedia.org/wiki/Rose–Vinet_equation_of_state), and polynomial log-log functional forms to Pressure-Volume ($P$-$V$) data provided by the user. The code uses a the ```curve_fit``` from ```scipy.optimize``` in combination with ```InterpolatedUnivariateSpline``` from ```scipy.interpolate```. The code supports error bars $\delta P_i$ in the pressure $P_i$, which changes the weights in the fitting to $w_i=1/\delta P_i$.  The output provides the fitting parameters for each of the functional forms with their respective errors from the covariance matrix. Different indicators are provided to determine which fit worked better, including RMSE, standard deviation of the residuals, $R^2$, and $\chi^2$  (see below).
 
 ## Fitting Equations of State using Vinet / Birch-Murnaghan / log-log to P-V data
-The Birch-Murnhagan EOS of 3rd order is given by
+### Birch-Murnhagan EOS
+
+The [Birch-Murnaghan](https://en.wikipedia.org/wiki/Birch–Murnaghan_equation_of_state) EOS of 3rd order is given by
 
 $$    P (V)= \frac{3}{2} K_0 \left(\left(\frac{V_0}{V}\right)^{7/3} -         \left(\frac{V_0}{V}\right)^{5/3}\right)   \left(1 + \frac{3}{4}\left(K_0'-4\right)\left(\left(\frac{V_0}{V}\right)^{2/3}-1\right)\right)$$ 
 
@@ -10,15 +12,32 @@ and the Birch-Murnhagan EOS of 4th order is given by
 
 $$    P (V)= \frac{3}{2} K_0 \left[\left(\frac{V_0}{V}\right)^{7/3} -  \left(\frac{V_0}{V}\right)^{5/3}\right]   \left[1 + \frac{3}{4}\left(K_0'-4\right)\left(\left(\frac{V_0}{V}\right)^{2/3}-1\right)  + \frac{1}{24}\left(9{K_0'}^2-63K_0'+9K_0K_0''+143\right)\left(\left(\frac{V_0}{V}\right)^{2/3}-1\right)^2\right],$$ 
 
-where $K_0\equiv K(V_0)$, $K_0'\equiv K'(P=0)$, and $K_0'' \equiv K''(P=0)$, with  $K'(P)\equiv \left(\frac{\partial K}{\partial P}\right)$ and  $K''(P)\equiv \left(\frac{\partial^2 K}{\partial P^2}\right)$. Note that the derivatives are taken with respect to pressure, not volume. In fact, $K'(P)= -K'(V)V/K(V)$.
+where $K_0\equiv K(V_0)$, $K_0'\equiv K'(P=0)$, and $K_0'' \equiv K''(P=0)$, with  $K'(P)\equiv \left(\frac{\partial K}{\partial P}\right)$ and  $K''(P)\equiv \left(\frac{\partial^2 K}{\partial P^2}\right)$. Note that the derivatives are taken with respect to pressure, not volume. In fact, $K'(P)= -K'(V)V/K(V)$. Further reading:
+* [Katsura, Tomoo, and Yoshinori Tange. "A simple derivation of the Birch–Murnaghan equations of state (EOSs) and comparison with EOSs derived from other definitions of finite strain." Minerals 9.12 (2019): 745.](https://doi.org/10.1063/1.333139)
 
+### The normalized pressure EOS: $F-f$
+Since pressure can be written in terms of the finite strain $f$, 
+$$P=3K_0 f(1+2f)^{5/2}(1-2\xi f+4\zeta f^2+...),$$
+where $f= \frac{1}{2}( (V_0/V)^{2/3} -1 )$ is the Eulerian strain, the normalized pressure, $F$ (not to be confused with Helmhotz free energy), is a simple linear or quadratic function of the strain,
+$$F(f)=\frac{P}{3f(1+2f)^{5/2}}=K_0 (1-2\xi f+4\zeta f^2+...),$$
+where $\xi=(3/4)(K_0'-4)$ and $\zeta=(3/8)[K_0K_0''+K_0'(K_0'-7)+143/9]$. A simple (weighted) linear fit to $F(f)$ is equivalent to a third-order Birch-Murnaghan EOS, but it may be more precise and convinient because the intercept is $K_0$ and slope is proportional to $K_0'$. Further reading:
+* [Raymond Jeanloz. "Finite‐strain equation of state for high‐pressure phases." Geophysical Research Letters 8.12 (1981): 1219-1222](https://doi.org/10.1029/GL008i012p01219). 
+* [Dion Heinz and Raymond Jeanloz. "The equation of state of the gold calibration standard." Journal of applied physics 55.4 (1984): 885-893.](https://doi.org/10.1063/1.333139)
+
+>[!NOTE]
+>The code presented here is meant to fit $T>0$ isotherms (where $P(V_0)>0$) and it can deal with either volumes in Å<sup>3</sup> ($V$) or normalized volumes ($V/V_0$) as arguments. If the volumes are NOT normalized (they are not between 0 and 1), the code will divide the volumes by $V_0={\rm max}(V)$ and shift down the values of $P$ by $P_{\rm shift}={\rm min}(P)$, such that $P_{th}\equiv P-P_{\rm shift}$ looks like a zero-Kelvin isotherm that satisfies $P_{th}(V_0) = 0$ by definition. Therefore, the $F-f$ fit is performed over $P_{th}$ rather than $P$, using all points except $(P_0,V_0)$ and satisfies $P(V_0)= {\rm min}(P)$ by construction.
+
+### Vinet EOS
 The Vinet EOS is given by
 
 $$P(V)= 3K_0 \left(\frac{1.0-\eta}{\eta^2}\right) e^{ \frac{3}{2}(K_0'-1)(1-\eta) };\qquad \eta=(V/V_0)^{1/3}$$
 
 I also provide a new log-log polynomial EOS fit:
-$$\ln V = a + b\ln P + c(\ln P)^2 + d(\ln P)^3  \Rightarrow V(P) = {\rm e}^aP^{b+c\ln P+d(\ln P)^2}$$
+$$\ln V = a + b\ln P + c(\ln P)^2 + d(\ln P)^3  \Rightarrow V(P) = {\rm e}^aP^{b+c\ln P+d(\ln P)^2}.$$
 
+Further reading:
+* [Vinet, Pascal, et al. "Temperature effects on the universal equation of state of solids." Physical Review B 35.4 (1987): 1945.](https://doi.org/10.1103%2Fphysrevb.35.1945)
+* [Stacey, F. D., B. J. Brennan, and R. D. Irvine. "Finite strain theories and comparisons with seismological data." Geophysical surveys 4 (1981): 189-232.](https://link.springer.com/article/10.1007/BF01449185)
 
 ### Reported Errors:
 -   residuals = $P_{\rm fit}(V)-P$                                                                      
