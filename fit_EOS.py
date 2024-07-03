@@ -97,8 +97,11 @@ if len(sys.argv) == 1:
  Usage: {0}  EOS_Fe_sol_6000K.dat
  Usage: {0}  EOS_Fe_sol_6000K.dat   V[Å^3]-col P[GPa]-col P_error-col
  Usage: {0}  EOS_Fe_sol_6000K.dat       6         12          13
+ Usage: {0}  EOS_Fe_sol_6000K.dat   V[Å^3]-col V[Å^3]-col  P[GPa]-col P_error-col
+ Usage: {0}  EOS_Fe_sol_6000K.dat       6         7           12          13
+
  Usage: {0}  EOS_H2O_liq_7000K.dat      6         12          13  --BM4 --V0-as-param
- Usage: {0}  $EOS                       6         12          13    150   --BM4 
+ Usage: {0}  $EOS                       6         12          13  --PTarget 150   --BM4  --test -p --show-F-plot --merge-plots
  Usage: {0}   ... -p              --> print V(P) 
  Usage: {0}   ... --test          --> deleting-points performance test 
  Usage: {0}   ... --noplots       --> don't plot 
@@ -264,7 +267,6 @@ def dP_V_BM4(V, V0,K0,K0p,K0pp, dV0,dK0,dK0p,dK0pp):
     dp = sqrt( dPdK0*dPdK0*dK0*dK0  + dPdK0p*dPdK0p*dK0p*dK0p + dPdK0pp*dPdK0pp*dK0pp*dK0pp  )
     return dp
 
-
 def E_V_BM3(V, V0, K0, K0p, E0):
     f = V0/V
     E = E0 + (9*V0*K0/16)*GPaA3_to_eV * ( (f**(2.0/3.0)-1)**3 * K0p + (f**(2.0/3.0)-1)**2 * (6-4*(f**(2.0/3.0))))
@@ -286,13 +288,26 @@ def dP_VinetPressure(V, V0,K0,K0p, dV0,dK0,dK0p):
   return dp
 
 
+def SplineError(x_data, y_data, yerr, y_spline_func, x0):
+ '''
+ S(x) = InterpolatedUnivariateSpline(x_data, y_data)
+ sigma_S(x0) = sqrt( sum_i [∂S(x0)/∂yi]sigma_yi   )
+ '''
+ perturbation = min(yerr)
+ partial_derivatives = []
+ for i in range(len(y_data)):
+     y_perturbed = y_data.copy()
+     y_perturbed[i] += perturbation
+     spline_perturbed = InterpolatedUnivariateSpline(x_data, y_perturbed, w=1/yerr**2)
+     y_spline_perturbed = spline_perturbed(x0)
+     partial_derivative = (y_spline_perturbed - y_spline_func(x0)) / perturbation
+     partial_derivatives.append(partial_derivative)
+     #xx = linspace(min(x_data),max(x_data))
+     #ax3.plot(xx,spline_perturbed(xx),'--', lw=1)
+ partial_derivatives = np.array(partial_derivatives)
+ propagated_error_at_x0 = np.sqrt(np.sum((partial_derivatives * yerr)**2))
+ return propagated_error_at_x0
 
-#filename = "EOS_MgSiO3FeO_"+str(T0)+"K.dat"
-#print ("These are the cols",colV,colP,colPE)
-#if colV*colP*colPE == 0:
-# colP = 12 -1
-# colPE= 13 -1
-# colV = 6  -1
 
 try:
  data = np.loadtxt(filename, usecols=(3,colV,7,9,colP,colPE,14,15), dtype=float, comments='#')  # N, V, rho, T, P, PE, E, EE
@@ -320,10 +335,13 @@ except:
  else:
   V,P,dP  = [ arr[positive] for arr in data] 
   dV = 0.0
- #dP = 3*dP
+
+#dP = 10*dP  # Increase the error bars
 
 minP=min(P)
 maxV=max(V)
+dP = np.where(dP == 0, 1e-10, dP)
+
 
 try:
  T0=int(T)
@@ -344,24 +362,38 @@ P_residual = 10.0 + abs(min(P))        # Shift P by 10 upwards to prevent P=0.0 
 V_residual = 10.0 + abs(min(V))        # Shift V in case V does not represent volumes and may be negative 
 log_P = np.log(P + P_residual)
 log_V = np.log(V + V_residual)
-loglog_fit = lambda x: np.poly1d(np.polyfit(log_P, log_V,3))(x)  # lnV = a + b*lnP + c*lnP^2 + d*lnP^3  <==>  V(P) = exp(a)*P^{b+c*lnP+d*(lnP)^2}
-pp = np.linspace(min(P),max(P))
-#V_loglogfit = lambda p: np.exp(loglog_fit(np.log(p+P_residual))) - V_residual          #V(P)
-V_loglogfit = InterpolatedUnivariateSpline(pp, np.exp(loglog_fit(np.log(pp+P_residual))) - V_residual )         #V(P)
+
+delta_lnP = abs(dP/(P + P_residual))
+coeffs_loglogP, cov_matrix_loglogP = np.polyfit(log_V, log_P,3,  cov=True)
+errors_loglogP = sqrt(diag(cov_matrix_loglogP))
+A=coeffs_loglogP[-1]; dA=errors_loglogP[-1]
+B=coeffs_loglogP[-2]; dB=errors_loglogP[-2]
+C=coeffs_loglogP[-3]; dC=errors_loglogP[-3]
+D=coeffs_loglogP[-4]; dD=errors_loglogP[-4]
+polynomial_loglog_fit = lambda lnV: np.poly1d(coeffs_loglogP)(lnV)  # lnP = a + b*lnV + c*lnV^2 + d*lnV^3  <==>  P(V) = exp(a)*V^{b+c*lnV+d*(lnV)^2}
+dlnP = lambda lnV:  sqrt( dA**2 + (lnV*dB)**2 + (lnV*lnV*dC)**2 + (lnV*lnV*lnV*dD)**2 ) 
+vv =  np.linspace(min(V),max(V))
+P_loglogfit = InterpolatedUnivariateSpline(vv,  np.exp(polynomial_loglog_fit( np.log(vv+V_residual) )) - P_residual    )  # P(V)
+P_loglog_err  = lambda v:  P_loglogfit(v) * dlnP( log(v) )
 try:
- P_loglogfit = InterpolatedUnivariateSpline(V_loglogfit(pp[::-1]), pp[::-1]) #P(V)
+ V_loglogfit = InterpolatedUnivariateSpline(P_loglogfit(vv[::-1]), vv[::-1]) #V(P)
 except:
- P_loglogfit = InterpolatedUnivariateSpline(V_loglogfit(pp), pp) #P(V)
+ V_loglogfit = InterpolatedUnivariateSpline(P_loglogfit(vv), vv) #V(P)
+V_loglog_err  = lambda p: abs(V_loglogfit.derivative()(p)) * P_loglog_err( V_loglogfit(p) )  
+
+
+
 
 #------------------------#
 #       SPLINE           #
 #------------------------#
-#spl_V = InterpolatedUnivariateSpline(P[sorted_indices],V[sorted_indices])  # V(P)
-sorted_indices = P.argsort()
 try:
- P_spline = InterpolatedUnivariateSpline(V[::-1],P[::-1])  # P(V)
+ if any(dP==0): P_spline = InterpolatedUnivariateSpline(V[::-1],P[::-1])  # P(V)
+ else:          P_spline = InterpolatedUnivariateSpline(V[::-1],P[::-1], w=1/dP[::-1]**2)  # P(V)
 except: 
- P_spline = InterpolatedUnivariateSpline(V,P)  # P(V)
+ if any(dP==0):  P_spline = InterpolatedUnivariateSpline(V,P)  # P(V)
+ else:           P_spline = InterpolatedUnivariateSpline(V,P, w=1/dP**2)  # P(V)
+sorted_indices = P.argsort()
 V_spline = InterpolatedUnivariateSpline(P[sorted_indices],V[sorted_indices])  # V(P)
 #dP_spline = InterpolatedUnivariateSpline(P[sorted_indices], dP[sorted_indices])
 
@@ -508,7 +540,8 @@ ps = P_BM(vs) #[P_BM(v) for v in vs]
 ax.plot(vs, ps,'r-', lw=4,label='$P(V)$ BM fit')
 ax.plot(vs, P_Vinet(vs),'--', c='limegreen',lw=3,label='$P(V)$ Vinet fit')
 ax.plot(vs, P_spline(vs),'--',dashes=[8,2], c='m', lw=2, label='$P(V)$ spline fit')
-ax.plot(vs, P_loglogfit(vs),'k',dashes=[5,1,1,1],lw=2,label=r'Log-Log polyfit '+'\n'+r'($\ln V=a + b*\ln P + c*\ln^2 P + d*\ln^3 P$)')
+ax.plot(vs, P_loglogfit(vs),'k',dashes=[5,1,1,1],lw=2,label=r'Log-Log polyfit '+'\n'+r'($\ln P=a + b*\ln V + c*\ln^2 V + d*\ln^3 V$)')
+
 if fbv_exists:
  p_list =linspace(1.1*min(P),0.9*max(P),100)
  vols_fbv = [  float(subprocess.check_output(fbv_path +' '+ filename + ' ' + str(colV+1) + ' ' + str(colP+1) + ' ' + str(colPE+1) + ' ' + str(p) + " | awk '/NewV/{print $NF}' ", shell=True ))  for p in p_list ]
@@ -520,7 +553,10 @@ ax.set_ylim(0.9*min(P),1.5*max(P))
 
 dPs = dP_BM(vs)
 ax.fill_between(vs, ps-dPs, ps+dPs, color='red', alpha=0.1)
-ps = P_Vinet(vs)
+pp = P_loglogfit(vs)
+dPs = P_loglog_err(vs)
+#ax.fill_between(vs, pp-dPs, pp+dPs, color='blue', alpha=0.1)
+#ps = P_Vinet(vs)
 #dPs = dP_Vinet(vs)
 #ax.fill_between(vs, ps-dPs, ps+dPs, color='limegreen', alpha=0.9)
 #ax.set_xscale('log')
@@ -569,8 +605,8 @@ P_shift = 0.0
 if min(V)>1:
  #**** THIS IS JUST A TRICK  *****#
  #   ---- Re-scale x-axis, shift y-axis ----
- # When volumes are not normalized (i.e., V is not equal to V/V0),
- # I will normalize the volumes for F-f fit purposes using V0 = max(V).
+ # When volumes are not normalized (i.e., V is not equal to V/V0), then min(V)>1 and
+ # I will normalize the volumes by V0 = max(V) for F-f fit purposes only.
  # The problem with this normalization is that when V=V0, then f(V0)=0 and F(V0) is undefined (division by zero).
  #  - I solve this by ignoring F[0] and considering only the rest of the data, V=V[1:], P=P[1:].
  # In addition, I usually fit T>0 isotherms, so P(V0) = min(P) > 0. Thus, the expansion
@@ -593,7 +629,7 @@ dV0=0   # No error in the measurement of V0, but here for consistency
 dfdV0=0
 dfdV = -(V0/V)**(2.0/3)/(3*V)
 df2 = (dfdV*dV)**2 + (dfdV0*dV0)**2
-dFdf = P*(F/P)**2 * (  3*(1+2*f)**(5.0/2)  +  15*f*(1+2*f)**(3.0/2)  )
+dFdf = -( F/f + 5*F/(1+2*f) ) 
 dF = sqrt( (F*dP/P)**2 + (dFdf)**2*df2  )
 
 
@@ -625,6 +661,7 @@ def dP_Ff(v):
  f = 0.5*( (V0/v)**(2.0/3) -1 )
  return ( P_Ff(v)/F_vs_f_fit(f) ) * dF_vs_f_fit(f)
 
+
 if show_F_plot:
  #rcParams.update(params)
  fig3 = figure(3)
@@ -654,6 +691,14 @@ if show_F_plot:
  ##ax3.set_ylim(0,1.1*max(P))
 
 
+
+#F_spline = InterpolatedUnivariateSpline(f,F)
+#F_wspline = InterpolatedUnivariateSpline(f,F, w=1/dF**2)
+#dF_spline = [ SplineError(f,F,dF,F_spline, fi) for fi in ff  ]
+#ax3.errorbar(ff, F_vs_f_fit(ff), dF_spline, marker='.', ls='-',c='r',ms=10, capsize=10, mfc='lightblue', mec='b', mew=2, zorder=5,label=r'$F(f)$')
+
+
+
 V = V_org
 P = P_org
 dP = dP_org
@@ -663,7 +708,7 @@ FFerr = sqrt( (errors[0]*ff)**2 + errors[1]**2 )
 dPs = FFerr * P_Ff(vs) /F_vs_f_fit(ff)
 ax.fill_between(vs,  P_Ff(vs)-dPs,  P_Ff(vs)+dPs, color='orange',zorder=-1, alpha=0.1 )
 
-ax2.plot(V, (P_Ff(V) -P), ls='-', color='orange', marker='D', ms= 7, mfc='orange', mec='k', mew=1, zorder=10, label='$P_{F-f}(V)$')
+ax2.plot(V, (P_Ff(V) -P), ls='-', color='orange', marker='D', ms= 5, mfc='orange', mec='k', mew=1, zorder=10, label='$P_{F-f}(V)$')
 if BM_deg==4:
  print ( "F-f fit:      V0[Å^3]= %9.4f            K0[GPa]= %9.4f %7.4f  K0p= %7.4f %7.4f  K0pp= %7.4f %7.4f  %s"  % ( V0    , K0, K0E, K0p, K0pE, K0pp, K0ppE, "  # V0 as param" ) )
 else:
@@ -685,7 +730,7 @@ ax2.legend(loc=1)
 ### REPORT ###
 predictors = ['BM',  'Vinet',  'loglog' ]
 P_fit = { 'BM': P_BM, 'Vinet': P_Vinet, 'loglog': P_loglogfit}
-Nparams = { 'BM': len(popt_BM),  'Vinet': len(popt_Vinet), 'loglog': 4 }
+Nparams = { 'BM': len(popt_BM),  'Vinet': len(popt_Vinet), 'loglog': 4}
 if len(dP)==4: Nparams['loglog'] = 3 # avoid dividing by 0
 predictors  += ['F-f']
 P_fit['F-f'] = P_Ff
@@ -719,14 +764,15 @@ for p in sorted_predictors:
 #----------------------------------------------#
 #  PRINT & PLOT INTERPOLATED TABLE AND         #
 #  plot the fbv, spline BM & Vinet curves      #
+#  when the -p flag is active                  #
 #----------------------------------------------#
 if print_table:
  print("\n# PRINTING TABLE OF INTERPOLATED VOLUMES")
  vs = linspace(min(V), max(V), 500)
- each = 1 if P_BM(vs[0])<P_BM(vs[-1]) else -1
- spl_V_BM    = InterpolatedUnivariateSpline(    P_BM(vs[::each]), vs[::each])  # V(P)
- spl_V_Ff    = InterpolatedUnivariateSpline(    P_Ff(vs[::each]), vs[::each])  # V(P)
- spl_V_Vinet = InterpolatedUnivariateSpline( P_Vinet(vs[::each]), vs[::each])  # V(P)
+ sorted_indices = P_BM(vs).argsort()
+ spl_V_BM    = InterpolatedUnivariateSpline(    P_BM(vs)[sorted_indices], vs[sorted_indices])  # V(P)
+ spl_V_Ff    = InterpolatedUnivariateSpline(    P_Ff(vs)[sorted_indices], vs[sorted_indices])  # V(P)
+ spl_V_Vinet = InterpolatedUnivariateSpline( P_Vinet(vs)[sorted_indices], vs[sorted_indices])  # V(P)
  #p_list = arange(10,500,10)
  #p_list = arange(1e-10,201,1)
  Np = 40
@@ -750,6 +796,7 @@ if print_table:
 #----------------------------------------------#
 #  P_TARGET                                    #
 #  Providing V(P_Target) for each fit          #
+#  when the --PTarget flag is active           #
 #----------------------------------------------#
 if PTarget>0:
  print("\nVolume at P_Target")
@@ -760,6 +807,9 @@ if PTarget>0:
  V_BMerr = 0.0
  V_Fferr = 0.0
  V_Vinet_err = 0.0
+ V_spline_err  = abs(V_spline.derivative()(PTarget)) * SplineError(V[::-1],P[::-1],dP[::-1],P_spline, V_spline(PTarget))
+ V_loglog_err  = V_loglog_err(PTarget) 
+ #V_loglog_err  = V_loglogfit(PTarget) * sqrt( da**2 + (lnP*db)**2 + (lnP*lnP*dc)**2 + (lnP*lnP*lnP*dd)**2 ) 
  '''
  A model of two parameters, say P(V)= a*V**b, will have error bars of da and db in the covariance matrix: 
    Perr = da,db = np.sqrt(np.diag(pcov))         <-- errors in each of the fitting parameters
@@ -771,9 +821,10 @@ if PTarget>0:
    dV = dP/ |(∂P/∂V)| = |(∂V/∂P)| dP
  '''
  try:
-  each = 1 if P_BM(vs)[0]<P_BM(vs)[1] else -1
-  spl_V_BM    = InterpolatedUnivariateSpline(    P_BM(vs)[::each], vs[::each])  # V(P)
-  spl_V_Ff    = InterpolatedUnivariateSpline(    P_Ff(vs)[::each], vs[::each])  # V(P)
+  sorted_indices = P_BM(vs).argsort()
+  spl_V_BM    = InterpolatedUnivariateSpline(    P_BM(vs)[sorted_indices], vs[sorted_indices])  # V(P)
+  sorted_indices = P_Ff(vs).argsort()
+  spl_V_Ff    = InterpolatedUnivariateSpline(    P_Ff(vs)[sorted_indices], vs[sorted_indices])  # V(P)
   V_BM = spl_V_BM(PTarget)
   V_Ff = spl_V_Ff(PTarget)
   V_BMerr = abs(spl_V_BM.derivative()(PTarget)) * dP_BM(V_BM) 
@@ -783,17 +834,17 @@ if PTarget>0:
   pass 
 
  try:
-  each = 1 if P_Vinet(vs)[0]<P_Vinet(vs)[1] else -1
-  spl_V_Vinet = InterpolatedUnivariateSpline( P_Vinet(vs)[::each], vs[::each])  # V(P)
+  sorted_indices = P_Vinet(vs).argsort()
+  spl_V_Vinet = InterpolatedUnivariateSpline( P_Vinet(vs)[sorted_indices], vs[sorted_indices])  # V(P)
   V_Vinet = spl_V_Vinet(PTarget)
-  V_Vinet_err = abs(spl_V_Vinet.derivative()(PTarget)) * dP_Vinet(V_Vinet ) 
+  V_Vinet_err = abs(spl_V_Vinet.derivative()(PTarget)) * dP_Vinet(V_Vinet) 
  except:
   pass
  print ("P_Target[GPa]=  %9.2f  V_BM[Å^3]=      %9.4f ± %6.4f" % (PTarget, V_BM, V_BMerr)    )
  print ("P_Target[GPa]=  %9.2f  V_F-f[Å^3]=     %9.4f ± %6.4f" % (PTarget, V_Ff, V_Fferr)    )
  print ("P_Target[GPa]=  %9.2f  V_Vinet[Å^3]=   %9.4f ± %6.4f" % (PTarget, V_Vinet, V_Vinet_err) )
- print ("P_Target[GPa]=  %9.2f  V_loglog[Å^3]=  %9.4f" % (PTarget, V_loglogfit(PTarget)) )
- print ("P_Target[GPa]=  %9.2f  V_spline[Å^3]=  %9.4f" % (PTarget, V_spline(PTarget)) )
+ print ("P_Target[GPa]=  %9.2f  V_loglog[Å^3]=  %9.4f ± %6.4f" % (PTarget, V_loglogfit(PTarget), V_loglog_err) )
+ print ("P_Target[GPa]=  %9.2f  V_spline[Å^3]=  %9.4f ± %6.4f" % (PTarget, V_spline(PTarget), V_spline_err) )
  if fbv_exists:
   v_fbv =  float(subprocess.check_output(fbv_path +' '+ filename + ' ' + str(colV+1) + ' ' + str(colP+1) + ' ' + str(colPE+1) + ' ' + str(p) + " | awk '/NewV/{print $NF}' ", shell=True )) 
   print ("P_Target[GPa]=  %9.2f  V_fbv[Å^3]=     %9.4f" % (PTarget, v_fbv) )
@@ -885,8 +936,8 @@ if deleting_points_test:   #  --test
   pp = np.linspace(min(P),max(P))
   #V_loglogfit = lambda p: np.exp(loglog_fit(np.log(p+P_residual))) - V_residual          #V(P)
   V_loglogfit = InterpolatedUnivariateSpline(pp, np.exp(loglog_fit(np.log(pp+P_residual))) - V_residual )         #V(P)
-  each = 1 if V_loglogfit(pp)[0]<V_loglogfit(pp)[1] else -1
-  P_loglogfit = InterpolatedUnivariateSpline(V_loglogfit(pp[::each]), pp[::each]) #P(V)
+  sorted_indices = V_loglogfit(pp).argsort()
+  P_loglogfit = InterpolatedUnivariateSpline(V_loglogfit(pp)[sorted_indices], pp[sorted_indices]) #P(V)
 
 
 
@@ -899,9 +950,9 @@ if deleting_points_test:   #  --test
   V_BM = 0.0
   V_Vinet = 0.0
   try:
-   each = 1 if P_BM(vs)[0]<P_BM(vs)[1] else -1
-   spl_V_BM    = InterpolatedUnivariateSpline(    P_BM(vs[::each]), vs[::each])  # V(P)
-   spl_V_Vinet = InterpolatedUnivariateSpline( P_Vinet(vs[::each]), vs[::each])  # V(P)
+   sorted_indices = P_BM(vs).argsort()
+   spl_V_BM    = InterpolatedUnivariateSpline(    P_BM(vs)[sorted_indices], vs[sorted_indices])  # V(P)
+   spl_V_Vinet = InterpolatedUnivariateSpline( P_Vinet(vs)[sorted_indices], vs[sorted_indices])  # V(P)
    V_BM = spl_V_BM(P0)
    V_Vinet = spl_V_Vinet(P0)
   except:
@@ -1005,8 +1056,8 @@ if deleting_points_test:   #  --test
   #print("776: logP=",  log(pp+P_residual)   )
   #print("777: V=", loglog_fit( log(pp+P_residual) )  )
   V_loglogfit = InterpolatedUnivariateSpline(pp, np.exp(loglog_fit(np.log(pp+P_residual))) - V_residual )         #V(P)
-  each = 1 if V_loglogfit(pp)[0]<V_loglogfit(pp)[1] else -1
-  P_loglogfit = InterpolatedUnivariateSpline(V_loglogfit(pp[::each]), pp[::each]) #P(V)
+  sorted_indices = V_loglogfit(pp).argsort()
+  P_loglogfit = InterpolatedUnivariateSpline(V_loglogfit(pp)[sorted_indices], pp[sorted_indices]) #P(V)
   #except:
   # pass
 
@@ -1021,9 +1072,9 @@ if deleting_points_test:   #  --test
   V_BM = 0.0
   V_Vinet = 0.0
   try:
-   each = 1 if P_BM(vs)[0]<P_BM(vs)[1] else -1
-   spl_V_BM    = InterpolatedUnivariateSpline(    P_BM(vs[::each]), vs[::each])  # V(P)
-   spl_V_Vinet = InterpolatedUnivariateSpline( P_Vinet(vs[::each]), vs[::each])  # V(P)
+   sorted_indices = P_BM(vs).argsort()
+   spl_V_BM    = InterpolatedUnivariateSpline(    P_BM(vs)[sorted_indices], vs[sorted_indices])  # V(P)
+   spl_V_Vinet = InterpolatedUnivariateSpline( P_Vinet(vs)[sorted_indices], vs[sorted_indices])  # V(P)
    V_BM = spl_V_BM(P0)
    V_Vinet = spl_V_Vinet(P0)
   except:
