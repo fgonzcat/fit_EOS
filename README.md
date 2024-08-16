@@ -21,7 +21,9 @@ Since pressure can be written in terms of the finite strain $f$,
 $$P=3K_0 f(1+2f)^{5/2}(1-2\xi f+4\zeta f^2+...),$$
 
 where $f= \frac{1}{2}( (V_0/V)^{2/3} -1 )$ is the Eulerian strain, the normalized pressure, $F$ (not to be confused with Helmhotz free energy), is a simple linear or quadratic function of the strain,
+
 $$F(f)=\frac{P}{3f(1+2f)^{5/2}}=K_0 (1-2\xi f+4\zeta f^2+...),$$
+
 where $\xi=(3/4)(K_0'-4)$ and $\zeta=(3/8)[K_0K_0''+K_0'(K_0'-7)+143/9]$. A simple (weighted) linear fit to $F(f)$ is equivalent to a third-order Birch-Murnaghan EOS, but it may be more precise and convinient because the intercept is $K_0$ and slope is proportional to $K_0'$. Further reading:
 * [Raymond Jeanloz. "Finite‐strain equation of state for high‐pressure phases." Geophysical Research Letters 8.12 (1981): 1219-1222](https://doi.org/10.1029/GL008i012p01219). 
 * [Dion Heinz and Raymond Jeanloz. "The equation of state of the gold calibration standard." Journal of applied physics 55.4 (1984): 885-893.](https://doi.org/10.1063/1.333139)

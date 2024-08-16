@@ -309,6 +309,10 @@ def SplineError(x_data, y_data, yerr, y_spline_func, x0):
  return propagated_error_at_x0
 
 
+
+#--------------------------#
+#  READ INPUT DATA TABLE   #
+#--------------------------#
 try:
  data = np.loadtxt(filename, usecols=(3,colV,7,9,colP,colPE,14,15), dtype=float, comments='#')  # N, V, rho, T, P, PE, E, EE
  data  = data[data[:,1].argsort()][::-1]  # Sort by increasing volumes and then invert
@@ -324,22 +328,35 @@ try:
 except:
  #V,P,dP  = np.loadtxt(filename, usecols=(colV,colP,colPE), dtype=float, comments='#', unpack=True)  # x, y, yerr 
  if colVE>0:  
-  data    = np.loadtxt(filename, usecols=(colV,colVE,colP,colPE), dtype=float, comments='#',unpack=True)  # x, y, yerr 
+  if colPE<0:
+   data    = np.loadtxt(filename, usecols=(colV,colVE,colP), dtype=float, comments='#',unpack=True)  # x, y, yerr 
+  else:
+   data    = np.loadtxt(filename, usecols=(colV,colVE,colP,colPE), dtype=float, comments='#',unpack=True)  # x, y, yerr 
  else:
-  data    = np.loadtxt(filename, usecols=(colV,colP,colPE), dtype=float, comments='#',unpack=True)  # x, y, yerr 
+  if colPE<0:
+   data    = np.loadtxt(filename, usecols=(colV,colP), dtype=float, comments='#',unpack=True)  # x, y, yerr 
+  else:
+   data    = np.loadtxt(filename, usecols=(colV,colP,colPE), dtype=float, comments='#',unpack=True)  # x, y, yerr 
  sorted_indices = data[0].argsort()[::-1]    # Sort by increasing volumes and then invert
  data = data[:, sorted_indices]
  positive = data[1] >= 0.0  # (P>=0)
  if colVE>0:  
-  V,dV,P,dP  = [ arr[positive] for arr in data] 
+  if colPE<0:
+   V,dV,P     = [ arr[positive] for arr in data] 
+  else:
+   V,dV,P,dP  = [ arr[positive] for arr in data] 
  else:
-  V,P,dP  = [ arr[positive] for arr in data] 
+  if colPE<0:
+   V,P     = [ arr[positive] for arr in data] 
+  else:
+   V,P,dP  = [ arr[positive] for arr in data] 
   dV = 0.0
 
 #dP = 10*dP  # Increase the error bars
 
 minP=min(P)
 maxV=max(V)
+if colPE<0: dP=zeros(len(V))
 dP = np.where(dP == 0, 1e-10, dP)
 
 
@@ -394,7 +411,15 @@ except:
  if any(dP==0):  P_spline = InterpolatedUnivariateSpline(V,P)  # P(V)
  else:           P_spline = InterpolatedUnivariateSpline(V,P, w=1/dP**2)  # P(V)
 sorted_indices = P.argsort()
-V_spline = InterpolatedUnivariateSpline(P[sorted_indices],V[sorted_indices])  # V(P)
+P_sorted = P[sorted_indices]
+V_sorted = V[sorted_indices]
+# Remove duplicates 
+_, unique_indices = np.unique(P_sorted, return_index=True)
+P_unique = P_sorted[unique_indices]
+V_unique = V_sorted[unique_indices]
+
+V_spline = InterpolatedUnivariateSpline(P_unique,V_unique)  # V(P)
+#V_spline = InterpolatedUnivariateSpline(P[sorted_indices],V[sorted_indices])  # V(P)
 #dP_spline = InterpolatedUnivariateSpline(P[sorted_indices], dP[sorted_indices])
 
 
