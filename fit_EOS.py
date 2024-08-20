@@ -393,7 +393,15 @@ vv =  np.linspace(min(V),max(V))
 P_loglogfit = InterpolatedUnivariateSpline(vv,  np.exp(polynomial_loglog_fit( np.log(vv+V_residual) )) - P_residual    )  # P(V)
 P_loglog_err  = lambda v:  P_loglogfit(v) * dlnP( log(v) )
 try:
- V_loglogfit = InterpolatedUnivariateSpline(P_loglogfit(vv[::-1]), vv[::-1]) #V(P)
+ sorted_indices = vv[::-1].argsort()
+ P_sorted = P_loglogfit(vv[::-1][sorted_indices])
+ V_sorted =             vv[::-1][sorted_indices] 
+ # Remove duplicates 
+ _, unique_indices = np.unique(P_sorted, return_index=True)
+ P_unique = P_sorted[unique_indices]
+ V_unique = V_sorted[unique_indices]
+ #V_loglogfit = InterpolatedUnivariateSpline(P_loglogfit(vv[::-1]), vv[::-1]) #V(P)
+ V_loglogfit = InterpolatedUnivariateSpline(P_unique, V_unique) #V(P)
 except:
  V_loglogfit = InterpolatedUnivariateSpline(P_loglogfit(vv), vv) #V(P)
 V_loglog_err  = lambda p: abs(V_loglogfit.derivative()(p)) * P_loglog_err( V_loglogfit(p) )  
@@ -619,6 +627,7 @@ ax2.errorbar(V, P-P, dP, marker='o', ls='', c='blue', ms=14, capsize=10, mfc='li
 # see http://doi.org/10.1063/1.333139          #
 #----------------------------------------------#
 V_org = array(V)
+P_org = array(P)
 dV_org = 0.0
 if not isinstance(dV,float): dV_org = array(dV)
 P_org = array(P)
@@ -630,17 +639,18 @@ P_shift = 0.0
 if min(V)>1:
  #**** THIS IS JUST A TRICK  *****#
  #   ---- Re-scale x-axis, shift y-axis ----
- # When volumes are not normalized (i.e., V is not equal to V/V0), then min(V)>1 and
- # I will normalize the volumes by V0 = max(V) for F-f fit purposes only.
- # The problem with this normalization is that when V=V0, then f(V0)=0 and F(V0) is undefined (division by zero).
- #  - I solve this by ignoring F[0] and considering only the rest of the data, V=V[1:], P=P[1:].
- # In addition, I usually fit T>0 isotherms, so P(V0) = min(P) > 0. Thus, the expansion
- # P=3K0*f(1+2f)^(5/2)(1-2xi*f+4*zeta*f^2+...)  and F=K0*(1-2xi*f+4*zeta*f^2+...)
- # does not make much sense. But it does if I treat P as thermal pressure, P-P[0]=Pth.
- #  - Therefore, I shift down P by P_shift=P[0], so Pth=P-P[0] looks like a zero-Kelvin isotherm
- #    that satisfies Pth(V0) = 0 by definition, so I force the fit to satisfy P(V0)= min(P) = P[0] 
+ # When volumes are not normalized (i.e., V is not equal to V/V0), then min(V)>1.
+ # Therefore, I will normalize the volumes by V0 = max(V) for F-f fit purposes only.
+ # The problem with this normalization is that when V=V0, then f(V0)=0 by definition and F(V0) becomes undefined (division by zero).
+ #  - I solve this by ignoring F[0] and considering only the rest of the data, V=V[1:], P=P[1:] (ignoring the largest volume max(V)=V0 point)
+ # In addition, since I usually fit T>0 isotherms, I have P(V0) = min(P) > 0. Thus, the expansion
+ # P=3K0*f(1+2f)^(5/2)(1+2xi*f+4*zeta*f^2+...)  and F=K0*(1+2xi*f+4*zeta*f^2+...)
+ # does not make much sense because P(f=0)= 0. But it does make sense if I treat P as thermal pressure, P-P[0]=Pth.
+ #  - Therefore, I shift down all pressures P by P_shift=P[0], so Pth=P-P[0] looks like a zero-Kelvin isotherm
+ #    that satisfies Pth(V0) = 0 by definition, so I force the fitted pressure to satisfy P(V0)= min(P) = P[0] 
  #    and the F-f fit is done over Pth[1:]
  V0 = 1.0*max(V_org) 
+ #V0 = 59.14
  V=V_org[1:]
  if not isinstance(dV,float): dV = dV_org[1:]
  P_shift = P_org[0]
@@ -650,21 +660,28 @@ f = 0.5*( (V0/V)**(2.0/3) -1 )
 F = P / ( 3*f * (1+2*f)**(5.0/2)  )
 #dF = abs(F/P)*dP
 
-dV0=0   # No error in the measurement of V0, but here for consistency
-dfdV0=0
+dV0=0.00   # No error in the measurement of V0, but here for consistency
+dfdV0=  (V0/V)**(2.0/3)/(3*V0)
 dfdV = -(V0/V)**(2.0/3)/(3*V)
 df2 = (dfdV*dV)**2 + (dfdV0*dV0)**2
 dFdf = -( F/f + 5*F/(1+2*f) ) 
-dF = sqrt( (F*dP/P)**2 + (dFdf)**2*df2  )
+dFdP = F/P
+dF = sqrt( (dFdP*dP)**2 + (dFdf)**2*df2  )
 
 
 F_f_deg = 2 if BM_deg ==4 else 1
 coeffs, cov_matrix = np.polyfit(f, F, F_f_deg, w=1/dF, cov=True)
+#coeffs, cov_matrix = np.polyfit(f, F, F_f_deg, cov=True)
+#print("Coefficients F vs f",coeffs)
+def linearF(x, a,b): return  a*x+b
+popt_Ff, pcov_Ff= curve_fit(linearF, f, F,  sigma=dF) #, absolute_sigma=True) #, maxfev=10000)
+#print("Curve fit Coefficients F vs f:",popt_Ff)
+
 errors = sqrt(diag(cov_matrix))
 K0 = coeffs[-1]  # The last one in polyfit is the x**0 coefficient [F(x) = F[0] * f**deg + ... + F[deg]]
 K0E = errors[-1]
-#xi = (3/4)*(K0p-4)                              --> K0p = xi/(3/4) + 4 = [a1/(-2K0)]/(3/4) + 4
-K0p = coeffs[-2]/(-2*K0*3/4.0 ) + 4               # Because a1 = -2 K0 xi = (-2 K0) (3/4)(K0'-4) in F=  a0 + a1 f, with a0= K0
+#xi = (3/4)*(K0p-4)                              --> K0p = xi/(3/4) + 4 = [a1/(2K0)]/(3/4) + 4
+K0p = coeffs[-2]/(2*K0*3/4.0 ) + 4               # Because a1 = +2 K0 xi = (+2 K0) (3/4)(K0'-4) in F=  a0 + a1 f, with a0= K0
 K0pE= abs(K0p-4)*sqrt( (errors[-2]/coeffs[-2])**2 + (errors[-1]/coeffs[-1])**2 ) 
 if BM_deg==4:
  #zeta = (3/8)*[K0 K0pp + K0p*(K0p-7) + 143/9]    --> K0pp= [ zeta/(3/8) - 143/9 - K0p*(K0p-7) ]/K0 = [ [a2/(4K0)]/(3/8) - 143/9 - K0p*(K0p-7) ]/K0
@@ -675,7 +692,7 @@ if F_f_deg==1:
  dF_vs_f_fit = lambda fi: sqrt( (fi*errors[0])**2 + errors[1]**2 )
 elif F_f_deg==2:
  dF_vs_f_fit = lambda fi: sqrt( (fi*fi*errors[0])**2 + (fi*errors[1])**2 + errors[2]**2 )
-ff = linspace(min(f), max(f))
+ff = linspace(0*min(f), max(f))
 
 
 def P_Ff(v):
@@ -694,15 +711,19 @@ if show_F_plot:
  ax3.set_xlabel(r'$f= \frac{1}{2}[ (V_0/V)^{2/3} -1 ]$')
  ax3.set_ylabel(r'$F= P/[ 3f \; (1+2f)^{5/2}  ] $')
  ax3.plot( ff, F_vs_f_fit(ff), 'r--' , label='Weighted fit ($w_i=1/\delta F_i$)')
+ #ax3.plot( ff, linearF(ff, *popt_Ff), 'k--' , label='curve fit')
  FFerr = dF_vs_f_fit(ff)
  ax3.fill_between(ff, F_vs_f_fit(ff) - FFerr, F_vs_f_fit(ff) + FFerr, color='red', zorder=-1, alpha=0.1)
  ax3.errorbar(f, F, dF , marker='o', ls='-',c='b',ms=10, capsize=10, mfc='lightblue', mec='b', mew=2, zorder=5,label=r'$F(f)$')
  ax3.legend(loc='best')
+ ax3.set_xlim(0,1.1*max(f))
 
  ax4 = subplot(212)
  dfdV_org = -(V0/V_org)**(2.0/3)/(3*V_org)
- df2_org = (dfdV_org*dV_org)**2 + (dfdV0*dV0)**2
- ax4.errorbar(1-V_org/V0, P_org, yerr=dP_org, xerr=abs(1/dfdV_org)*sqrt(df2_org), marker='o', ls='',c='b',ms= 8, capsize= 6, mfc='lightblue', mec='b', mew=2, zorder=5,label=r'$P(V)$')
+ dfdV0_org=  (V0/V_org)**(2.0/3)/(3*V0)
+ df2_org = (dfdV_org*dV_org)**2 + (dfdV0_org*dV0)**2
+ #ax4.errorbar(1-V_org/V0, P_org, yerr=dP_org, xerr=abs(1/dfdV_org)*sqrt(df2_org)/V0, marker='o', ls='',c='b',ms= 8, capsize= 6, mfc='lightblue', mec='b', mew=2, zorder=5,label=r'$P(V)$')
+ ax4.errorbar(1-V_org/V0, P_org, yerr=dP_org, xerr=sqrt( dV_org**2+(V_org*dV0/V0)**2 )/V0, marker='o', ls='',c='b',ms= 8, capsize= 6, mfc='lightblue', mec='b', mew=2, zorder=5,label=r'$P(V)$')
  #ax4.plot(1-vs/V0, P_BM(vs), 'k-', label='$P(V)$ BM fit')
  ax4.plot(1-vs/V0, P_Ff(vs), 'm-', dashes=[5,1,1,1], lw=2, label='$P_{F-f}(V)$ fit')
  ax4.plot(1-vs/V0, 0*vs, 'k--')
@@ -710,12 +731,20 @@ if show_F_plot:
  ax4.legend(loc='best')
  ax4.set_xlabel(r'$1-V/V_0$')
  ax4.set_ylabel(r'Pressure (GPa)')
- subplots_adjust(hspace=0.3)
+ subplots_adjust(hspace=0.35)
  ##ax3.set_ylim(0,440)
  ##ax3.set_xlim(0,max(1-vs/V0))
  ##ax3.set_ylim(0,1.1*max(P))
 
 
+#fig5 = figure('Z=PV/NkT')
+#ax5 = subplot(111)
+#GPaA3_to_eV = 0.0062415091
+#N = 1
+#T = 300
+#Z = P_org*V_org*GPaA3_to_eV/(N*kB*T)
+#ax5.plot(V_org, Z, label='$Z=PV/NkT$')
+#ax5.plot(V_org, 0*Z+1,'--')
 
 #F_spline = InterpolatedUnivariateSpline(f,F)
 #F_wspline = InterpolatedUnivariateSpline(f,F, w=1/dF**2)
