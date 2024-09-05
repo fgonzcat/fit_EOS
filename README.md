@@ -18,7 +18,7 @@ where $K_0\equiv K(V_0)$, $K_0'\equiv K'(P=0)$, and $K_0'' \equiv K''(P=0)$, wit
 ### The normalized pressure EOS: $F-f$
 Since pressure can be written in terms of the finite strain $f$, 
 
-$$P=3K_0 f(1+2f)^{5/2}(1-2\xi f+4\zeta f^2+...),$$
+$$P=3K_0 f(1+2f)^{5/2}(1+2\xi f+4\zeta f^2+...),$$
 
 where $f= \frac{1}{2}( (V_0/V)^{2/3} -1 )$ is the Eulerian strain, the normalized pressure, $F$ (not to be confused with Helmhotz free energy), is a simple linear or quadratic function of the strain,
 
