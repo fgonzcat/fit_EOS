@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python 
 """
 -----------------------------------------------------------------------------------------------|
  FITTING EQUATIONS OF STATE USING VINET / BIRCH-MURNHAGAN / F-f / LOG-LOG                      |
@@ -47,7 +47,7 @@ Reported Errors:                                                                
                                                                                                |
 Felipe Gonzalez                                                          Berkeley, 05/19/2023  |
 -----------------------------------------------------------------------------------------------|
-Last modified on:                                                                  05/18/2024
+Last modified on:                                                                  05/01/2025
 """
 from pylab import *
 from scipy.optimize import curve_fit
@@ -76,10 +76,11 @@ V0_as_param = False
 Merge_Figures=False
 fbv_path = os.path.expanduser("~/scripts/fbv")
 try:
- subprocess.run([fbv_path],check=True)
- fbv_exists = True
+ #subprocess.run([fbv_path],check=True)
+ fbv_exists = os.path.isfile(fbv_path)
 except:
  fbv_exists = False
+
 
 
 
@@ -586,12 +587,12 @@ ax.set_ylim(0.9*min(P),1.5*max(P))
 
 dPs = dP_BM(vs)
 ax.fill_between(vs, ps-dPs, ps+dPs, color='red', alpha=0.1)
-pp = P_loglogfit(vs)
-dPs = P_loglog_err(vs)
+#pp = P_loglogfit(vs)
+#dPs = P_loglog_err(vs)
 #ax.fill_between(vs, pp-dPs, pp+dPs, color='blue', alpha=0.1)
-#ps = P_Vinet(vs)
-#dPs = dP_Vinet(vs)
-#ax.fill_between(vs, ps-dPs, ps+dPs, color='limegreen', alpha=0.9)
+ps = P_Vinet(vs)
+dPs = dP_Vinet(vs)
+ax.fill_between(vs, ps-dPs, ps+dPs, color='limegreen', alpha=0.1)
 #ax.set_xscale('log')
 #ax.set_yscale('log')
 #savefig('PV.png')
@@ -760,7 +761,7 @@ ax.plot(vs, P_Ff(vs), '-', c='orange',dashes=[5,2,1,1], lw=2, label='$P(V)$ $F$-
 ff = 0.5*( (V0/vs)**(2.0/3) -1 )
 FFerr = sqrt( (errors[0]*ff)**2 + errors[1]**2 ) 
 dPs = FFerr * P_Ff(vs) /F_vs_f_fit(ff)
-ax.fill_between(vs,  P_Ff(vs)-dPs,  P_Ff(vs)+dPs, color='orange',zorder=-1, alpha=0.1 )
+#ax.fill_between(vs,  P_Ff(vs)-dPs,  P_Ff(vs)+dPs, color='orange',zorder=-1, alpha=0.1 )
 
 ax2.plot(V, (P_Ff(V) -P), ls='-', color='orange', marker='D', ms= 5, mfc='orange', mec='k', mew=1, zorder=10, label='$P_{F-f}(V)$')
 if BM_deg==4:
@@ -903,6 +904,10 @@ if PTarget>0:
   v_fbv =  float(subprocess.check_output(fbv_path +' '+ filename + ' ' + str(colV+1) + ' ' + str(colP+1) + ' ' + str(colPE+1) + ' ' + str(p) + " | awk '/NewV/{print $NF}' ", shell=True )) 
   print ("P_Target[GPa]=  %9.2f  V_fbv[Å^3]=     %9.4f" % (PTarget, v_fbv) )
 
+ xx = linspace(0, V_BM)
+ ax.plot(xx, 0*xx + PTarget, '--', c='grey')
+ yy = linspace(0, PTarget)
+ ax.plot(0*yy+V_BM, yy, '--', c='grey')
 
  #def integrand_with_error(P):  return (V_spline.derivative()(P) * dP_spline(P))**2
  #dGInt, _ = quad(V_spline, 148.878, PTarget)
@@ -913,7 +918,10 @@ if PTarget>0:
   PBest = min(P, key=lambda p: abs(p-PTarget))
   print("PBest[GPa]= %9.1f"% (PBest) )
   dGInt, _ = quad( spl_V_BM , P1, PTarget)
-  print("Integral from P1[GPa]= %6.2f to P_Target[GPa]= %6.2f:  ∆G[eV]= %14.12f " % (P1,PTarget, dGInt*GPaA3_to_eV) )
+  print("Integral from P1[GPa]= %6.2f to P_Target[GPa]= %6.2f:  ∆G[eV]= %14.12f   ∆G[Ha]= %14.12f  " % (P1,PTarget, dGInt*GPaA3_to_eV, dGInt*GPaA3_to_eV/Ha_to_eV) )
+  yy = linspace(P1,PTarget)
+  ax.fill_betweenx( yy, 0*yy , 0*yy + spl_V_BM(yy), color='r',alpha=0.3)
+  ax.text( 0.45*(max(V)+min(V)), 0.5*(PTarget+P1), r'$\int V dP$')
  
 
  
