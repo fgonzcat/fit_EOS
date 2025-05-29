@@ -299,7 +299,8 @@ def SplineError(x_data, y_data, yerr, y_spline_func, x0):
  for i in range(len(y_data)):
      y_perturbed = y_data.copy()
      y_perturbed[i] += perturbation
-     spline_perturbed = InterpolatedUnivariateSpline(x_data, y_perturbed, w=1/yerr**2)
+     k = 3 if len(x_data)>3 else 2
+     spline_perturbed = InterpolatedUnivariateSpline(x_data, y_perturbed, w=1/yerr**2, k=k)
      y_spline_perturbed = spline_perturbed(x0)
      partial_derivative = (y_spline_perturbed - y_spline_func(x0)) / perturbation
      partial_derivatives.append(partial_derivative)
@@ -360,6 +361,7 @@ maxV=max(V)
 if colPE<0: dP=zeros(len(V))
 dP = np.where(dP == 0, 1e-10, dP)
 
+if len(V)<=4: BM_deg=3   # If the user requests BM4, but you have  4 data points, BM4 is not possible. Force BM3
 
 try:
  T0=int(T)
@@ -382,30 +384,40 @@ log_P = np.log(P + P_residual)
 log_V = np.log(V + V_residual)
 
 delta_lnP = abs(dP/(P + P_residual))
-coeffs_loglogP, cov_matrix_loglogP = np.polyfit(log_V, log_P,3,  cov=True)
-errors_loglogP = sqrt(diag(cov_matrix_loglogP))
-A=coeffs_loglogP[-1]; dA=errors_loglogP[-1]
-B=coeffs_loglogP[-2]; dB=errors_loglogP[-2]
-C=coeffs_loglogP[-3]; dC=errors_loglogP[-3]
-D=coeffs_loglogP[-4]; dD=errors_loglogP[-4]
-polynomial_loglog_fit = lambda lnV: np.poly1d(coeffs_loglogP)(lnV)  # lnP = a + b*lnV + c*lnV^2 + d*lnV^3  <==>  P(V) = exp(a)*V^{b+c*lnV+d*(lnV)^2}
-dlnP = lambda lnV:  sqrt( dA**2 + (lnV*dB)**2 + (lnV*lnV*dC)**2 + (lnV*lnV*lnV*dD)**2 ) 
-vv =  np.linspace(min(V),max(V))
-P_loglogfit = InterpolatedUnivariateSpline(vv,  np.exp(polynomial_loglog_fit( np.log(vv+V_residual) )) - P_residual    )  # P(V)
-P_loglog_err  = lambda v:  P_loglogfit(v) * dlnP( log(v) )
-try:
- sorted_indices = vv[::-1].argsort()
- P_sorted = P_loglogfit(vv[::-1][sorted_indices])
- V_sorted =             vv[::-1][sorted_indices] 
- # Remove duplicates 
- _, unique_indices = np.unique(P_sorted, return_index=True)
- P_unique = P_sorted[unique_indices]
- V_unique = V_sorted[unique_indices]
- #V_loglogfit = InterpolatedUnivariateSpline(P_loglogfit(vv[::-1]), vv[::-1]) #V(P)
- V_loglogfit = InterpolatedUnivariateSpline(P_unique, V_unique) #V(P)
+k = 3 if len(V)>3  else 2 # There should be more than just 3 points to fit usually, but if only 3 are available, use degree 2 
+try: 
+ if len(V)==4:
+  coeffs_loglogP                     = np.polyfit(log_V, log_P, k,  cov=False)
+  errors_loglogP = [0,0,0,0]
+ else:
+  coeffs_loglogP, cov_matrix_loglogP = np.polyfit(log_V, log_P, k,  cov=True)
+  errors_loglogP = sqrt(diag(cov_matrix_loglogP))
+ A=coeffs_loglogP[-1]; dA=errors_loglogP[-1]
+ B=coeffs_loglogP[-2]; dB=errors_loglogP[-2]
+ C=coeffs_loglogP[-3]; dC=errors_loglogP[-3]
+ D=0.0; dD=0.0         
+ if k==3:  D=coeffs_loglogP[-4]; dD=errors_loglogP[-4]
+ polynomial_loglog_fit = lambda lnV: np.poly1d(coeffs_loglogP)(lnV)  # lnP = a + b*lnV + c*lnV^2 + d*lnV^3  <==>  P(V) = exp(a)*V^{b+c*lnV+d*(lnV)^2}
+ dlnP = lambda lnV:  sqrt( dA**2 + (lnV*dB)**2 + (lnV*lnV*dC)**2 + (lnV*lnV*lnV*dD)**2 ) 
+ vv =  np.linspace(min(V),max(V))
+ P_loglogfit = InterpolatedUnivariateSpline(vv,  np.exp(polynomial_loglog_fit( np.log(vv+V_residual) )) - P_residual    )  # P(V)
+ P_loglog_err  = lambda v:  P_loglogfit(v) * dlnP( log(v) )
+ try:
+  sorted_indices = vv[::-1].argsort()
+  P_sorted = P_loglogfit(vv[::-1][sorted_indices])
+  V_sorted =             vv[::-1][sorted_indices] 
+  # Remove duplicates 
+  _, unique_indices = np.unique(P_sorted, return_index=True)
+  P_unique = P_sorted[unique_indices]
+  V_unique = V_sorted[unique_indices]
+  #V_loglogfit = InterpolatedUnivariateSpline(P_loglogfit(vv[::-1]), vv[::-1]) #V(P)
+  V_loglogfit = InterpolatedUnivariateSpline(P_unique, V_unique) #V(P)
+ except:
+  V_loglogfit = InterpolatedUnivariateSpline(P_loglogfit(vv), vv) #V(P)
+ V_loglog_err  = lambda p: abs(V_loglogfit.derivative()(p)) * P_loglog_err( V_loglogfit(p) )  
 except:
- V_loglogfit = InterpolatedUnivariateSpline(P_loglogfit(vv), vv) #V(P)
-V_loglog_err  = lambda p: abs(V_loglogfit.derivative()(p)) * P_loglog_err( V_loglogfit(p) )  
+ print("\nCan't fit a log-log function with just ", len(V),"points. Skipping log-log fit...")
+
 
 
 
@@ -414,11 +426,11 @@ V_loglog_err  = lambda p: abs(V_loglogfit.derivative()(p)) * P_loglog_err( V_log
 #       SPLINE           #
 #------------------------#
 try:
- if any(dP==0): P_spline = InterpolatedUnivariateSpline(V[::-1],P[::-1])  # P(V)
- else:          P_spline = InterpolatedUnivariateSpline(V[::-1],P[::-1], w=1/dP[::-1]**2)  # P(V)
+ if any(dP==0): P_spline = InterpolatedUnivariateSpline(V[::-1],P[::-1], k=k)  # P(V)
+ else:          P_spline = InterpolatedUnivariateSpline(V[::-1],P[::-1], w=1/dP[::-1]**2, k=k)  # P(V)
 except: 
- if any(dP==0):  P_spline = InterpolatedUnivariateSpline(V,P)  # P(V)
- else:           P_spline = InterpolatedUnivariateSpline(V,P, w=1/dP**2)  # P(V)
+ if any(dP==0):  P_spline = InterpolatedUnivariateSpline(V,P, k=k)  # P(V)
+ else:           P_spline = InterpolatedUnivariateSpline(V,P, w=1/dP**2, k=k)  # P(V)
 sorted_indices = P.argsort()
 P_sorted = P[sorted_indices]
 V_sorted = V[sorted_indices]
@@ -427,7 +439,7 @@ _, unique_indices = np.unique(P_sorted, return_index=True)
 P_unique = P_sorted[unique_indices]
 V_unique = V_sorted[unique_indices]
 
-V_spline = InterpolatedUnivariateSpline(P_unique,V_unique)  # V(P)
+V_spline = InterpolatedUnivariateSpline(P_unique,V_unique, k=k)  # V(P)
 #V_spline = InterpolatedUnivariateSpline(P[sorted_indices],V[sorted_indices])  # V(P)
 #dP_spline = InterpolatedUnivariateSpline(P[sorted_indices], dP[sorted_indices])
 
@@ -574,7 +586,8 @@ ps = P_BM(vs) #[P_BM(v) for v in vs]
 ax.plot(vs, ps,'r-', lw=4,label='$P(V)$ BM fit')
 ax.plot(vs, P_Vinet(vs),'--', c='limegreen',lw=3,label='$P(V)$ Vinet fit')
 ax.plot(vs, P_spline(vs),'--',dashes=[8,2], c='m', lw=2, label='$P(V)$ spline fit')
-ax.plot(vs, P_loglogfit(vs),'k',dashes=[5,1,1,1],lw=2,label=r'Log-Log polyfit '+'\n'+r'($\ln P=a + b*\ln V + c*\ln^2 V + d*\ln^3 V$)')
+if len(V)>3:  # FIXME: Can't fit a log-log with just 3 points, so P_loglogfit never happened above
+ ax.plot(vs, P_loglogfit(vs),'k',dashes=[5,1,1,1],lw=2,label=r'Log-Log polyfit '+'\n'+r'($\ln P=a + b*\ln V + c*\ln^2 V + d*\ln^3 V$)')
 
 if fbv_exists:
  p_list =linspace(1.1*min(P),0.9*max(P),100)
@@ -608,7 +621,7 @@ ax2.plot(vs,ps-ps,'k--' ,label='$P$ Data')
 dPs = dP_BM(V) #, *popt_BM, *Perr_BM)
 ax2.errorbar(V, (P_BM(V)-P), 0*dPs, color='red', marker='s', ms=12, capsize=10, mfc='pink', mec='red', mew=2, label=r'$P_{\rm BM}-P$')
 ax2.errorbar(V, (P_Vinet(V)-P), 0*dP, color='limegreen', marker='v', ms=10, capsize=10, mfc='w', mec='limegreen', mew=2,label=r'$P_{\rm Vinet}-P$')
-ax2.errorbar(V, (P_loglogfit(V)-P), 0*dP, color='k', lw=1, marker='d', ms=12, capsize=6, mfc='yellow', mec='k', mew=2, label=r'$P_{\rm log-log}-P$')
+if len(V)>3: ax2.errorbar(V, (P_loglogfit(V)-P), 0*dP, color='k', lw=1, marker='d', ms=12, capsize=6, mfc='yellow', mec='k', mew=2, label=r'$P_{\rm log-log}-P$')
 ax2.errorbar(V, P-P, dP, marker='o', ls='', c='blue', ms=14, capsize=10, mfc='lightblue', mec='blue', mew=2, lw=2, zorder=-1, label=r'$P(V)$ ')
 
 
@@ -671,14 +684,21 @@ dF = sqrt( (dFdP*dP)**2 + (dFdf)**2*df2  )
 
 
 F_f_deg = 2 if BM_deg ==4 else 1
-coeffs, cov_matrix = np.polyfit(f, F, F_f_deg, w=1/dF, cov=True)
+try:
+ coeffs, cov_matrix = np.polyfit(f, F, F_f_deg, w=1/dF, cov=True)
+except:
+ coeffs             = np.polyfit(f, F, F_f_deg, w=1/dF, cov=False)
+ cov_matrix = zeros(len(coeffs))
 #coeffs, cov_matrix = np.polyfit(f, F, F_f_deg, cov=True)
 #print("Coefficients F vs f",coeffs)
 def linearF(x, a,b): return  a*x+b
 popt_Ff, pcov_Ff= curve_fit(linearF, f, F,  sigma=dF) #, absolute_sigma=True) #, maxfev=10000)
 #print("Curve fit Coefficients F vs f:",popt_Ff)
 
-errors = sqrt(diag(cov_matrix))
+errors = sqrt(diag(cov_matrix)) 
+if len(V)==2:
+ errors = [0, 0]
+ cov_matrix = [0, 0]
 K0 = coeffs[-1]  # The last one in polyfit is the x**0 coefficient [F(x) = F[0] * f**deg + ... + F[deg]]
 K0E = errors[-1]
 #xi = (3/4)*(K0p-4)                              --> K0p = xi/(3/4) + 4 = [a1/(2K0)]/(3/4) + 4
@@ -783,9 +803,17 @@ ax2.legend(loc=1)
 
 
 ### REPORT ###
-predictors = ['BM',  'Vinet',  'loglog' ]
-P_fit = { 'BM': P_BM, 'Vinet': P_Vinet, 'loglog': P_loglogfit}
-Nparams = { 'BM': len(popt_BM),  'Vinet': len(popt_Vinet), 'loglog': 4}
+if len(V)>3:
+ predictors = ['BM',  'Vinet',  'loglog' ]
+ P_fit = { 'BM': P_BM, 'Vinet': P_Vinet, 'loglog': P_loglogfit}
+ Nparams = { 'BM': len(popt_BM),  'Vinet': len(popt_Vinet), 'loglog': 4}
+elif len(V)==3:
+ predictors = ['BM',  'Vinet' ]
+ P_fit = { 'BM': P_BM, 'Vinet': P_Vinet}
+ Nparams = { 'BM': len(popt_BM),  'Vinet': len(popt_Vinet), 'loglog': 4}
+else:
+ print("\n Can't fit with just 2 points... bye.")
+ exit()
 if len(dP)==4: Nparams['loglog'] = 3 # avoid dividing by 0
 predictors  += ['F-f']
 P_fit['F-f'] = P_Ff
@@ -863,7 +891,8 @@ if PTarget>0:
  V_Fferr = 0.0
  V_Vinet_err = 0.0
  V_spline_err  = abs(V_spline.derivative()(PTarget)) * SplineError(V[::-1],P[::-1],dP[::-1],P_spline, V_spline(PTarget))
- V_loglog_err  = V_loglog_err(PTarget) 
+ if len(V)>3: # Can't do a log-log fit with just 3 points
+  V_loglog_err  = V_loglog_err(PTarget) 
  #V_loglog_err  = V_loglogfit(PTarget) * sqrt( da**2 + (lnP*db)**2 + (lnP*lnP*dc)**2 + (lnP*lnP*lnP*dd)**2 ) 
  '''
  A model of two parameters, say P(V)= a*V**b, will have error bars of da and db in the covariance matrix: 
@@ -898,7 +927,8 @@ if PTarget>0:
  print ("P_Target[GPa]=  %9.2f  V_BM[Å^3]=      %9.4f ± %6.4f" % (PTarget, V_BM, V_BMerr)    )
  print ("P_Target[GPa]=  %9.2f  V_F-f[Å^3]=     %9.4f ± %6.4f" % (PTarget, V_Ff, V_Fferr)    )
  print ("P_Target[GPa]=  %9.2f  V_Vinet[Å^3]=   %9.4f ± %6.4f" % (PTarget, V_Vinet, V_Vinet_err) )
- print ("P_Target[GPa]=  %9.2f  V_loglog[Å^3]=  %9.4f ± %6.4f" % (PTarget, V_loglogfit(PTarget), V_loglog_err) )
+ if len(V)>3:
+  print ("P_Target[GPa]=  %9.2f  V_loglog[Å^3]=  %9.4f ± %6.4f" % (PTarget, V_loglogfit(PTarget), V_loglog_err) )
  print ("P_Target[GPa]=  %9.2f  V_spline[Å^3]=  %9.4f ± %6.4f" % (PTarget, V_spline(PTarget), V_spline_err) )
  if fbv_exists:
   v_fbv =  float(subprocess.check_output(fbv_path +' '+ filename + ' ' + str(colV+1) + ' ' + str(colP+1) + ' ' + str(colPE+1) + ' ' + str(p) + " | awk '/NewV/{print $NF}' ", shell=True )) 
@@ -919,9 +949,10 @@ if PTarget>0:
   print("PBest[GPa]= %9.1f"% (PBest) )
   dGInt, _ = quad( spl_V_BM , P1, PTarget)
   print("Integral from P1[GPa]= %6.2f to P_Target[GPa]= %6.2f:  ∆G[eV]= %14.12f   ∆G[Ha]= %14.12f  " % (P1,PTarget, dGInt*GPaA3_to_eV, dGInt*GPaA3_to_eV/Ha_to_eV) )
-  yy = linspace(P1,PTarget)
-  ax.fill_betweenx( yy, 0*yy , 0*yy + spl_V_BM(yy), color='r',alpha=0.3)
-  ax.text( 0.45*(max(V)+min(V)), 0.5*(PTarget+P1), r'$\int V dP$')
+  if P1>0:
+   yy = linspace(P1,PTarget)
+   ax.fill_betweenx( yy, 0*yy , 0*yy + spl_V_BM(yy), color='r',alpha=0.3)
+   ax.text( 0.45*(max(V)+min(V)), 0.5*(PTarget+P1), r'$\int V dP$')
  
 
  
