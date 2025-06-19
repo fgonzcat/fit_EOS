@@ -44,16 +44,20 @@ Further reading:
 * [Stacey, F. D., B. J. Brennan, and R. D. Irvine. "Finite strain theories and comparisons with seismological data." Geophysical surveys 4 (1981): 189-232.](https://link.springer.com/article/10.1007/BF01449185)
 
 ### Reported Errors:
--   residuals = $P_{\rm fit}(V)-P$                                                                      
--   sigma     = std(residuals)
--   RMSE      = sqrt(mean(residuals)^2)
--   R2        =  1 - sum(residuals^2)
--   $\chi^2$ = sum(${\rm residuals}^2$ / $dP^2$)
-  - $\chi^2 < 1$ ---> Line passes more than 2/3 of 1 sigma / sigma too big / Overfit
-  - $\chi^2 > 1$ ---> Line misses more than 1/3 of 1 sigma / sigma too small / inadeq. model
-  - $\chi^2 = 1$ ---> Line passes through 2/3 of 1 sigma & 95% of 2 sigma.
-  - Model with $\chi^2$ closest to 1, wins.                                     
-                                                                                               
+-   residuals = $P_{\rm fit}(V) - P$
+-   $\sigma$ = standard deviation of residuals
+-   RMSE = $\sqrt{\text{mean}({\rm residuals}^2)}$
+-   $R^2 = 1 - \dfrac{\sum ({\rm residuals}^2)}{\sum (P - \text{mean}(P))^2}$
+-   $\chi^2 = \sum \left( \dfrac{{\rm residuals}^2}{dP^2} \right)$
+-   $\chi^2_{\nu} = \frac{\chi^2 }{ (N - p)}$  $\quad$  ($\chi^2_{\nu}$: Reduced $\chi^2$; $N$: total number of data points;  $p$: number of fitting parameters)
+
+### Interpreting Reduced $\chi^2$:
+-   $\chi^2_{\nu} \approx 1$: model is consistent with data within error bars
+-   $\chi^2_{\nu} < 1$: possible overfitting or overestimated uncertainties
+-   $\chi^2_{\nu} > 1$: model may be inadequate or error bars underestimated
+-   Among multiple models, the one with $\chi^2_{\nu}$ closest to 1 is generally preferred.
+
+                                                                                              
 
 ## Executing the code
 ### Help
