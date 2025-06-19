@@ -38,12 +38,14 @@ Reported Errors:                                                                
    residuals = P_fit(V)-P                                                                      |
    sigma     = std(residuals)                                                                  |
    RMSE      = sqrt(mean(residuals)^2)                                                         |
-   R2        =  1 - sum(residuals^2)                                                           |
+   R2        =  1 - sum(residuals^2)/sum(Pi - mean(P))                                         |
    chi_squared = sum(residuals**2 / dP**2)                                                     |
-       chi^2 < 1 ---> Line passes more than 2/3 of 1 sigma / sigma too big / Overfit           |
-       chi^2 > 1 ---> Line misses more than 1/3 of 1 sigma / sigma too small / inadeq. model   |
-       chi^2 = 1 ---> Line passes through 2/3 of 1 sigma & 95% of 2 sigma                      |
-                      Model with chi^2 closest to 1, wins.                                     |
+   reduced_chi_squared = chi_squared/(N-p)                                                     |
+       chi^2 ~ 1 ---> model is consistent with data within error bars.                         |
+       chi^2 < 1 ---> possible overfitting or overestimated uncertainties                      |
+       chi^2 > 1 ---> model may be inadequate or error bars underestimated                     |
+                 Among multiple models, the one with reduced_chi_squared                       |
+                 closest to 1 is generally preferred.                                          |
                                                                                                |
 Felipe Gonzalez                                                          Berkeley, 05/19/2023  |
 -----------------------------------------------------------------------------------------------|
@@ -119,14 +121,17 @@ if len(sys.argv) == 1:
 
  Reported Errors:
    residuals = P_fit(V)-P
-   sigma     = std(residuals) 
+   sigma     = std(residuals)
    RMSE      = sqrt(mean(residuals)^2)
-   R2        =  1 - sum(residuals^2)
+   R2        =  1 - sum(residuals^2)/sum(Pi - mean(P))
    chi_squared = sum(residuals**2 / dP**2)
-       chi^2 < 1 ---> Line passes more than 2/3 of 1 sigma / sigma too big / Overfit
-       chi^2 > 1 ---> Line misses more than 1/3 of 1 sigma / sigma too small / inadeq. model
-       chi^2 = 1 ---> Line passes through 2/3 of 1 sigma & 95% of 2 sigma 
-                      Model with chi^2 closest to 1, wins. 
+   reduced_chi_squared = chi_squared/(N-p)
+       chi^2 ~ 1 ---> model is consistent with data within error bars.
+       chi^2 < 1 ---> possible overfitting or overestimated uncertainties.
+       chi^2 > 1 ---> model may be inadequate or error bars underestimated.
+                 Among multiple models, the one with reduced_chi_squared.
+                 closest to 1 is generally preferred.
+
  
  """.format(sys.argv[0])
  
@@ -913,7 +918,6 @@ if PTarget>0:
   V_Ff = spl_V_Ff(PTarget)
   V_BMerr = abs(spl_V_BM.derivative()(PTarget)) * dP_BM(V_BM) 
   V_Fferr = abs(spl_V_Ff.derivative()(PTarget)) * dP_Ff(V_Ff) 
-  print (Verr)
  except:
   pass 
 
