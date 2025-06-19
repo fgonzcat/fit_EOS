@@ -1,5 +1,5 @@
 # fit_EOS
-This is code that allows to fit [Birch-Murnaghan](https://en.wikipedia.org/wiki/Birch–Murnaghan_equation_of_state), [Vinet](https://en.wikipedia.org/wiki/Rose–Vinet_equation_of_state), and polynomial log-log functional forms to Pressure-Volume ($P$-$V$) data provided by the user. The code uses a the ```curve_fit``` from ```scipy.optimize``` in combination with ```InterpolatedUnivariateSpline``` from ```scipy.interpolate```. The code supports error bars $\delta P_i$ in the pressure $P_i$, which changes the weights in the fitting to $w_i=1/\delta P_i$.  The output provides the fitting parameters for each of the functional forms with their respective errors from the covariance matrix. Different indicators are provided to determine which fit worked better, including RMSE, standard deviation of the residuals, $R^2$, and $\chi^2$  (see below).
+This is code that allows to fit [Birch-Murnaghan](https://en.wikipedia.org/wiki/Birch–Murnaghan_equation_of_state), [Vinet](https://en.wikipedia.org/wiki/Rose–Vinet_equation_of_state), and polynomial log-log functional forms to Pressure-Volume ($P\text{-}V$) data provided by the user. The code uses a the ```curve_fit``` from ```scipy.optimize``` in combination with ```InterpolatedUnivariateSpline``` from ```scipy.interpolate```. The code supports error bars $\delta P_i$ in the pressure $P_i$, which changes the weights in the fitting to $w_i=1/\delta P_i$.  The output provides the fitting parameters for each of the functional forms with their respective errors from the covariance matrix. Different indicators are provided to determine which fit worked better, including RMSE, standard deviation of the residuals, $R^2$, and $\chi^2$  (see below).
 
 ## Fitting Equations of State using Vinet / Birch-Murnaghan / log-log to P-V data
 ### Birch-Murnhagan EOS
@@ -13,7 +13,7 @@ and the Birch-Murnhagan EOS of 4th order is given by
 $$    P (V)= \frac{3}{2} K_0 \left[\left(\frac{V_0}{V}\right)^{7/3} -  \left(\frac{V_0}{V}\right)^{5/3}\right]   \left[1 + \frac{3}{4}\left(K_0'-4\right)\left(\left(\frac{V_0}{V}\right)^{2/3}-1\right)  + \frac{1}{24}\left(9{K_0'}^2-63K_0'+9K_0K_0''+143\right)\left(\left(\frac{V_0}{V}\right)^{2/3}-1\right)^2\right],$$ 
 
 where $K_0\equiv K(V_0)$, $K_0'\equiv K'(P=0)$, and $K_0'' \equiv K''(P=0)$, with  $K'(P)\equiv \left(\frac{\partial K}{\partial P}\right)$ and  $K''(P)\equiv \left(\frac{\partial^2 K}{\partial P^2}\right)$. Note that the derivatives are taken with respect to pressure, not volume. In fact, $K'(P)= -K'(V)V/K(V)$. Further reading:
-* [Katsura, Tomoo, and Yoshinori Tange. "A simple derivation of the Birch–Murnaghan equations of state (EOSs) and comparison with EOSs derived from other definitions of finite strain." Minerals 9.12 (2019): 745.](https://doi.org/10.1063/1.333139)
+* [Katsura, Tomoo, and Yoshinori Tange. "A simple derivation of the Birch–Murnaghan equations of state (EOSs) and comparison with EOSs derived from other definitions of finite strain." Minerals 9.12 (2019): 745.](https://www.mdpi.com/2075-163X/9/12/745)
 
 ### The normalized pressure EOS: $F-f$
 Since pressure can be written in terms of the finite strain $f$, 
@@ -44,16 +44,20 @@ Further reading:
 * [Stacey, F. D., B. J. Brennan, and R. D. Irvine. "Finite strain theories and comparisons with seismological data." Geophysical surveys 4 (1981): 189-232.](https://link.springer.com/article/10.1007/BF01449185)
 
 ### Reported Errors:
--   residuals = $P_{\rm fit}(V)-P$                                                                      
--   sigma     = std(residuals)
--   RMSE      = sqrt(mean(residuals)^2)
--   R2        =  1 - sum(residuals^2)
--   $\chi^2$ = sum(${\rm residuals}^2$ / $dP^2$)
-  - $\chi^2 < 1$ ---> Line passes more than 2/3 of 1 sigma / sigma too big / Overfit
-  - $\chi^2 > 1$ ---> Line misses more than 1/3 of 1 sigma / sigma too small / inadeq. model
-  - $\chi^2 = 1$ ---> Line passes through 2/3 of 1 sigma & 95% of 2 sigma.
-  - Model with $\chi^2$ closest to 1, wins.                                     
-                                                                                               
+-   residuals = $P_{\rm fit}(V) - P$
+-   $\sigma$ = standard deviation of residuals
+-   RMSE = $\sqrt{\text{mean}({\rm residuals}^2)}$
+-   $R^2 = 1 - \dfrac{\sum ({\rm residuals}^2)}{\sum (P - \text{mean}(P))^2}$
+-   $\chi^2 = \sum \left( \dfrac{{\rm residuals}^2}{dP^2} \right)$
+-   $\chi^2_{\nu} = \frac{\chi^2 }{ (N - p)}$  $\quad$  ($\chi^2_{\nu}$: Reduced $\chi^2$; $N$: total number of data points;  $p$: number of fitting parameters)
+
+### Interpreting Reduced $\chi^2$:
+-   $\chi^2_{\nu} \approx 1$: model is consistent with data within error bars
+-   $\chi^2_{\nu} < 1$: possible overfitting or overestimated uncertainties
+-   $\chi^2_{\nu} > 1$: model may be inadequate or error bars underestimated
+-   Among multiple models, the one with $\chi^2_{\nu}$ closest to 1 is generally preferred.
+
+                                                                                              
 
 ## Executing the code
 ### Help
