@@ -74,9 +74,13 @@ by Felipe Gonzalez [Berkeley 05-19-2023]
  This code fits an isotherm using Birch-Murnhagan, Vinet, and log-log [Berkeley 05-19-23]
 
  Usage: ./fit_EOS.py  EOS_Fe_sol_6000K.dat
- Usage: ./fit_EOS.py  EOS_Fe_sol_6000K.dat   V[A^3]-col P[GPa]-col P_error-col
+ Usage: ./fit_EOS.py  EOS_Fe_sol_6000K.dat   V[A^3]-col P[GPa]-col P_error-col[GPa]
  Usage: ./fit_EOS.py  EOS_Fe_sol_6000K.dat       6         12          13
+ Usage: ./fit_EOS.py  EOS_Fe_sol_6000K.dat   V[A^3]-col  V_error-col  P[GPa]-col P_error-col[GPa]
+ Usage: ./fit_EOS.py  EOS_H2O_liq_7000K.dat      6         7           12          13
+
  Usage: ./fit_EOS.py  EOS_H2O_liq_7000K.dat      6         12          13  --BM4 --V0-as-param
+ Usage: ./fit_EOS.py  $EOS                       6         12          13  --PTarget 150   --BM4  --test -p --show-F-plot --merge-plots
  Usage: ./fit_EOS.py   ... -p          ... --> print V(P)
  Usage: ./fit_EOS.py   ... --test      ... --> deleting-points performance test
  Usage: ./fit_EOS.py   ... --noplots       --> don't plot
