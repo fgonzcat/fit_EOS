@@ -195,6 +195,9 @@ Integral from P1[GPa]=  -1.00 to P_Target[GPa]= 400.00:  ∆G[eV]= 1840.26483185
 
 The value of $\Delta G$ is provided in eV, provided that $P$ is in GPa and $V$ is in Å<sup>3</sup>.
 
+<img src="https://github.com/fgonzcat/fit_EOS/blob/main/PV_isotherm_P1_to_PTarget.png?raw=true" alt="Alt text" width="600">
+
+
 ## Deleting points test: which fit performs better?
 Using the ```--test``` option, the code will remove one point from the input dataset and refit the data. Since the removed point $(P_0,V_0)$ contains the known volume, the fit that better predicts $V_0$ for fixed $P_0$ is, in principle, the most reliable. A second round of tests removing two random datapoints from the dataset is performed in order to test the consistency:
 
