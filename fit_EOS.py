@@ -547,9 +547,9 @@ print ( "Vinet fit:    V0[Å^3]= %9.4f %9.4f  K0[GPa]= %9.4f %7.4f  K0p= %7.4f %
 # PLOTTING THE FIT WHERE P( max(V)=V0 ) = min(P) = P0
 if V0_as_param:
  P_BM = lambda v:  P_V_BM(v, *npopt_BM)
- dP_BM= lambda v: dP_V_BM(v, *npopt_BM, 0, *nPerr_BM)
+ dP_BM= lambda v: dP_V_BM(v, *npopt_BM, *nPerr_BM)
  P_Vinet = lambda v: VinetPressure(v, *npopt_Vinet)
- dP_Vinet= lambda v: dP_VinetPressure(v, *npopt_Vinet, 0, *nPerr_Vinet)
+ dP_Vinet= lambda v: dP_VinetPressure(v, *npopt_Vinet, *nPerr_Vinet)
 else:
  P_BM = lambda v: minP + P_V_BM(v, maxV, *popt_BM)
  dP_BM= lambda v:       dP_V_BM(v, maxV, *popt_BM, 0, *Perr_BM)
