@@ -36,14 +36,17 @@ The Vinet EOS is given by
 
 $$P(V)= 3K_0 \left(\frac{1.0-\eta}{\eta^2}\right) e^{ \frac{3}{2}(K_0'-1)(1-\eta) };\qquad \eta=(V/V_0)^{1/3}$$
 
-I also provide a new log-log polynomial EOS fit:
-$$\ln V = a + b\ln P + c(\ln P)^2 + d(\ln P)^3  \Rightarrow V(P) = {\rm e}^aP^{b+c\ln P+d(\ln P)^2}.$$
 
 Further reading:
 * [Vinet, Pascal, et al. "Temperature effects on the universal equation of state of solids." Physical Review B 35.4 (1987): 1945.](https://doi.org/10.1103%2Fphysrevb.35.1945)
 * [Stacey, F. D., B. J. Brennan, and R. D. Irvine. "Finite strain theories and comparisons with seismological data." Geophysical surveys 4 (1981): 189-232.](https://link.springer.com/article/10.1007/BF01449185)
 
-### Reported Errors:
+### Log-log EOS
+I also provide a new log-log polynomial EOS fit:
+$$\ln V = a + b\ln P + c(\ln P)^2 + d(\ln P)^3  \Rightarrow V(P) = {\rm e}^aP^{b+c\ln P+d(\ln P)^2}.$$
+
+
+## Reported Errors:
 -   residuals = $P_{\rm fit}(V) - P$
 -   $\sigma$ = standard deviation of residuals
 -   RMSE = $\sqrt{\text{mean}({\rm residuals}^2)}$
@@ -51,7 +54,7 @@ Further reading:
 -   $\chi^2 = \sum \left( \dfrac{{\rm residuals}^2}{dP^2} \right)$
 -   $\chi^2_{\nu} = \frac{\chi^2 }{ (N - p)}$  $\quad$  ($\chi^2_{\nu}$: Reduced $\chi^2$; $N$: total number of data points;  $p$: number of fitting parameters)
 
-### Interpreting Reduced $\chi^2$:
+## Interpreting Reduced $\chi^2$:
 -   $\chi^2_{\nu} \approx 1$: model is consistent with data within error bars
 -   $\chi^2_{\nu} < 1$: possible overfitting or overestimated uncertainties
 -   $\chi^2_{\nu} > 1$: model may be inadequate or error bars underestimated
