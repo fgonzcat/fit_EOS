@@ -249,14 +249,38 @@ def dP_V_BM2(V, V0,K0, dV0,dK0):
 def P_V_BM3(V, V0,K0,K0p):
     # 3rd order Birch-Murnaghan
     f = (V0/V)**(1.0/3)
-    P = 1.5*K0 * (f**7 - f**5) * (1 + 0.75*(K0p-4)*(f*f - 1))
+    f5 = f*f*f*f*f
+    P = 1.5*K0 * f5*(f**2 - 1.0) * (1 + 0.75*(K0p-4)*(f*f - 1))
     return P
-def dP_V_BM3(V, V0,K0,K0p, dV0,dK0,dK0p):
+def dP_V_BM3(V, V0,K0,K0p, dV0,dK0,dK0p,  cov_mat):
     # Error in P: dP = sqrt( [ (∂P/∂K0)dK0] ^2 + [ (∂P/∂K0p)dK0p] ^2  )
     f = (V0/V)**(1.0/3)
+    f2 = f*f
+    f5 = f*f*f*f*f
+    f7 = f5*f2
+    f2m1 = f2 - 1.0
+
+    A = f5*f2m1
+    B = (1 + 0.75*(K0p-4)*(f2  - 1))
+
     dPdK0 = P_V_BM3(V, V0,K0,K0p)/K0
-    dPdK0p = 1.5*K0 * (f**7 - f**5) * ( 0.75*(f*f - 1) )
-    dp = sqrt( dPdK0*dPdK0*dK0*dK0  + dPdK0p*dPdK0p*dK0p*dK0p  )
+    dPdK0p = 1.5*K0 * A *  0.75*f2m1 
+    # ∂P/∂V0= 3/2 K0 *[ dAdV0 * B + A * dBdV0]
+    dAdV0 = (7.0*f7  - 5.0*f5)/(3*V0)
+    dBdV0 = 0.5 *(K0p - 4) *f2/V0
+    dPdV0  = 1.5*K0 * (dAdV0*B + A*dBdV0)
+    # If V0 is NOT a param, 
+    # cov_mat =  [ Cov(K0,K0)   Cov(K0,K0p) 
+    #              Cov(K0p,K0)  Cov(K0p,K0p)  ]
+    # cov_mat =  [ Cov(V0,V0)   Cov(V0,K0)  Cov(V0, K0p)
+    #              Cov(K0,V0)   Cov(K0,K0)  Cov(K0, K0p)
+    #              Cov(K0p,V0)  Cov(K0p,K0) Cov(K0, K0p) ]
+    cov_terms = 0.0
+    if dV0==0:
+     cov_terms += 2*dPdK0*dPdK0p*cov_mat[0][1] 
+    else:
+     cov_terms += 2*dPdV0*dPdK0*cov_mat[0][1] +  2*dPdV0*dPdK0p*cov_mat[0][2] +  2*dPdK0*dPdK0p*cov_mat[1][2]  
+    dp = sqrt( dPdK0*dPdK0*dK0*dK0  + dPdK0p*dPdK0p*dK0p*dK0p  + dPdV0*dPdV0*dV0*dV0  + 1.0*cov_terms)
     return dp
 
 def P_V_BM4(V, V0,K0,K0p,K0pp):
@@ -264,7 +288,7 @@ def P_V_BM4(V, V0,K0,K0p,K0pp):
     f = (V0/V)**(1.0/3)
     P = 1.5*K0 * (f**7 - f**5) * (1 + 0.75*(K0p-4)*(f*f - 1)  + (1.0/24)*(9*K0p*K0p - 63*K0p + 9*K0*K0pp + 143) *(f*f - 1)*(f*f - 1) )
     return P
-def dP_V_BM4(V, V0,K0,K0p,K0pp, dV0,dK0,dK0p,dK0pp):
+def dP_V_BM4(V, V0,K0,K0p,K0pp, dV0,dK0,dK0p,dK0pp, cov_mat):
     # Error in P: dP = sqrt( [ (∂P/∂K0)dK0] ^2 + [ (∂P/∂K0p)dK0p] ^2 +  [ (∂P/∂K0pp)dK0pp] ^2 )
     f = (V0/V)**(1.0/3)
     dPdK0 = P_V_BM4(V, V0,K0,K0p,K0pp)/K0
@@ -460,9 +484,9 @@ if   BM_deg==2: P_V_BM = lambda V, V0,K0:          P_V_BM2(V, V0,K0)
 elif BM_deg==3: P_V_BM = lambda V, V0,K0,K0p:      P_V_BM3(V, V0,K0,K0p)
 elif BM_deg==4: P_V_BM = lambda V, V0,K0,K0p,K0pp: P_V_BM4(V, V0,K0,K0p,K0pp)
 
-if   BM_deg==2: dP_V_BM = lambda V, V0,K0,dV0,dK0:                     dP_V_BM2(V, V0,K0,dV0,dK0)
-elif BM_deg==3: dP_V_BM = lambda V, V0,K0,K0p,dV0,dK0,dK0p:            dP_V_BM3(V, V0,K0,K0p,dV0,dK0,dK0p)
-elif BM_deg==4: dP_V_BM = lambda V, V0,K0,K0p,K0pp,dV0,dK0,dK0p,dK0pp: dP_V_BM4(V, V0,K0,K0p,K0pp,dV0,dK0,dK0p,dK0pp)
+if   BM_deg==2: dP_V_BM = lambda V, V0,K0,dV0,dK0, cov_mat:                     dP_V_BM2(V, V0,K0,dV0,dK0, cov_mat)
+elif BM_deg==3: dP_V_BM = lambda V, V0,K0,K0p,dV0,dK0,dK0p, cov_mat:            dP_V_BM3(V, V0,K0,K0p,dV0,dK0,dK0p, cov_mat)
+elif BM_deg==4: dP_V_BM = lambda V, V0,K0,K0p,K0pp,dV0,dK0,dK0p,dK0pp, cov_mat: dP_V_BM4(V, V0,K0,K0p,K0pp,dV0,dK0,dK0p,dK0pp, cov_mat)
 
 
 k0   = -V[0]*(P[-1]-P[0])/(V[-1]-V[0])  #max(P)/10
@@ -480,6 +504,9 @@ elif BM_deg==4:
  p_BM = lambda v,K0,K0p,K0pp: minP + P_V_BM4(v, maxV,K0,K0p,K0pp)
 
 
+'''
+## BM with NO V0-as-param (only K0 and K0p are parameters) 
+'''
 #popt_BM, pcov_BM= curve_fit(p_BM, V, P, p0=initial_guess) #, maxfev=10000)
 popt_BM, pcov_BM= curve_fit(p_BM, V, P, p0=initial_guess , sigma=dP, absolute_sigma=True, maxfev=10000)
 Perr_BM = np.sqrt(np.diag(pcov_BM))
@@ -544,15 +571,18 @@ nPerr_Vinet = np.sqrt(np.diag(npcov_Vinet))
 print ( "Vinet fit:    V0[Å^3]= %9.4f %9.4f  K0[GPa]= %9.4f %7.4f  K0p= %7.4f %7.4f %s"  % ( npopt_Vinet[0], nPerr_Vinet[0], npopt_Vinet[1], nPerr_Vinet[1], npopt_Vinet[2], nPerr_Vinet[2], "  # V0 as param" ) )
 
 
-# PLOTTING THE FIT WHERE P( max(V)=V0 ) = min(P) = P0
+#-----------------------------------------------#
+#        BM & VINET P(V) & dP(V) functions      #
+#-----------------------------------------------#
+# Here I simplify the functions so they only depend on one variable: V
 if V0_as_param:
  P_BM = lambda v:  P_V_BM(v, *npopt_BM)
- dP_BM= lambda v: dP_V_BM(v, *npopt_BM, *nPerr_BM)
+ dP_BM= lambda v:  dP_V_BM(v, *npopt_BM, *nPerr_BM, npcov_BM)
  P_Vinet = lambda v: VinetPressure(v, *npopt_Vinet)
  dP_Vinet= lambda v: dP_VinetPressure(v, *npopt_Vinet, *nPerr_Vinet)
 else:
  P_BM = lambda v: minP + P_V_BM(v, maxV, *popt_BM)
- dP_BM= lambda v:       dP_V_BM(v, maxV, *popt_BM, 0, *Perr_BM)
+ dP_BM= lambda v:  dP_V_BM(v, maxV, *popt_BM, 0, *Perr_BM, pcov_BM)
  P_Vinet = lambda v: p_Vinet(v, *popt_Vinet)
  dP_Vinet= lambda v:       dP_VinetPressure(v, maxV, *popt_Vinet, 0, *Perr_Vinet)
 
