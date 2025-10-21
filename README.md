@@ -43,6 +43,7 @@ Further reading:
 
 ### Log-log EOS
 I also provide a new log-log polynomial EOS fit:
+
 $$\ln V = a + b\ln P + c(\ln P)^2 + d(\ln P)^3  \Rightarrow V(P) = {\rm e}^aP^{b+c\ln P+d(\ln P)^2}.$$
 
 
