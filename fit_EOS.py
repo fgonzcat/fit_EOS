@@ -280,7 +280,7 @@ def dP_V_BM3(V, V0,K0,K0p, dV0,dK0,dK0p,  cov_mat):
      cov_terms += 2*dPdK0*dPdK0p*cov_mat[0][1] 
     else:
      cov_terms += 2*dPdV0*dPdK0*cov_mat[0][1] +  2*dPdV0*dPdK0p*cov_mat[0][2] +  2*dPdK0*dPdK0p*cov_mat[1][2]  
-    dp = sqrt( dPdK0*dPdK0*dK0*dK0  + dPdK0p*dPdK0p*dK0p*dK0p  + dPdV0*dPdV0*dV0*dV0  + 1.0*cov_terms)
+    dp = sqrt( dPdV0*dPdV0*dV0*dV0 + dPdK0*dPdK0*dK0*dK0  + dPdK0p*dPdK0p*dK0p*dK0p  + dPdV0*dPdV0*dV0*dV0  + 1.0*cov_terms)
     return dp
 
 def P_V_BM4(V, V0,K0,K0p,K0pp):
@@ -294,7 +294,8 @@ def dP_V_BM4(V, V0,K0,K0p,K0pp, dV0,dK0,dK0p,dK0pp, cov_mat):
     dPdK0 = P_V_BM4(V, V0,K0,K0p,K0pp)/K0
     dPdK0p = 1.5*K0 * (f**7 - f**5) * ( 0.75*(f*f - 1)  + (1.0/24)*(18*K0p - 63 ) *(f*f - 1)*(f*f - 1) )
     dPdK0pp= 1.5*K0 * (f**7 - f**5) * ( (1.0/24)*( 9*K0 ) *(f*f - 1)*(f*f - 1) )
-    dp = sqrt( dPdK0*dPdK0*dK0*dK0  + dPdK0p*dPdK0p*dK0p*dK0p + dPdK0pp*dPdK0pp*dK0pp*dK0pp  )
+    dPdV0 = 0.0 # for now...
+    dp = sqrt( dPdV0*dPdV0*dV0*dV0 + dPdK0*dPdK0*dK0*dK0  + dPdK0p*dPdK0p*dK0p*dK0p + dPdK0pp*dPdK0pp*dK0pp*dK0pp  )
     return dp
 
 def E_V_BM3(V, V0, K0, K0p, E0):
@@ -308,13 +309,20 @@ def VinetPressure(V, V0,K0,K0p):
   xi = 1.5*(K0p-1.0)
   P  = 3.0*K0 * (1.0-x)/x/x * np.exp( xi*(1.0-x) )
   return P
-def dP_VinetPressure(V, V0,K0,K0p, dV0,dK0,dK0p):
+def dP_VinetPressure(V, V0,K0,K0p, dV0,dK0,dK0p, cov_mat):
   # Error in P: dP = sqrt( [ (∂P/∂K0)dK0] ^2 + [ (∂P/∂K0p)dK0p] ^2  )
   x  = (V/V0)**(1.0/3.0)
   xi = 1.5*(K0p-1.0)
   dPdK0  = VinetPressure(V, V0,K0,K0p)/K0 
   dPdK0p = VinetPressure(V, V0,K0,K0p) *  1.5*(1.0-x) 
-  dp = sqrt( dPdK0*dPdK0*dK0*dK0  + dPdK0p*dPdK0p*dK0p*dK0p  )
+  # ∂P/∂V0= -(K0/V0) (1/eta - 2/eta^2) exp( xi*(1.0-eta) ) + (P(V)/V0) *eta (K0'-1)
+  dPdV0 =  -(K0/V0) *(x -2)/(x*x)* np.exp( xi*(1.0-x) )  + VinetPressure(V, V0,K0,K0p) * x*(K0p-1)/(2*V0)
+  cov_terms = 0.0
+  if dV0==0:
+   cov_terms += 2*dPdK0*dPdK0p*cov_mat[0][1] 
+  else:
+   cov_terms += 2*dPdV0*dPdK0*cov_mat[0][1] +  2*dPdV0*dPdK0p*cov_mat[0][2] +  2*dPdK0*dPdK0p*cov_mat[1][2]  
+  dp = sqrt( dPdV0*dPdV0*dV0*dV0 +  dPdK0*dPdK0*dK0*dK0  + dPdK0p*dPdK0p*dK0p*dK0p  + cov_terms)
   return dp
 
 
@@ -576,15 +584,15 @@ print ( "Vinet fit:    V0[Å^3]= %9.4f %9.4f  K0[GPa]= %9.4f %7.4f  K0p= %7.4f %
 #-----------------------------------------------#
 # Here I simplify the functions so they only depend on one variable: V
 if V0_as_param:
- P_BM = lambda v:  P_V_BM(v, *npopt_BM)
- dP_BM= lambda v:  dP_V_BM(v, *npopt_BM, *nPerr_BM, npcov_BM)
- P_Vinet = lambda v: VinetPressure(v, *npopt_Vinet)
- dP_Vinet= lambda v: dP_VinetPressure(v, *npopt_Vinet, *nPerr_Vinet)
+ P_BM =    lambda v:       P_V_BM(v, *npopt_BM)
+ dP_BM=    lambda v:       dP_V_BM(v, *npopt_BM, *nPerr_BM, npcov_BM)
+ P_Vinet = lambda v:       VinetPressure(v, *npopt_Vinet)
+ dP_Vinet= lambda v:       dP_VinetPressure(v, *npopt_Vinet, *nPerr_Vinet, npcov_Vinet)
 else:
- P_BM = lambda v: minP + P_V_BM(v, maxV, *popt_BM)
- dP_BM= lambda v:  dP_V_BM(v, maxV, *popt_BM, 0, *Perr_BM, pcov_BM)
- P_Vinet = lambda v: p_Vinet(v, *popt_Vinet)
- dP_Vinet= lambda v:       dP_VinetPressure(v, maxV, *popt_Vinet, 0, *Perr_Vinet)
+ P_BM =    lambda v:       minP + P_V_BM(v, maxV, *popt_BM)
+ dP_BM=    lambda v:       dP_V_BM(v, maxV, *popt_BM, 0, *Perr_BM, pcov_BM)
+ P_Vinet = lambda v:       p_Vinet(v, *popt_Vinet)
+ dP_Vinet= lambda v:       dP_VinetPressure(v, maxV, *popt_Vinet, 0, *Perr_Vinet, pcov_Vinet)
 
 
 #----------------------------------------------#
